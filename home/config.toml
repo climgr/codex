@@ -1,0 +1,28 @@
+# User-level Codex defaults. Hooks and custom agents live beside this file.
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+web_search = "live"
+
+[agents]
+max_concurrent_threads_per_session = 4
+
+[sandbox_workspace_write]
+writable_roots = ["~/Projects"]
+network_access = true
+
+[tui]
+theme = "dracula"
+status_line = [
+  "model-with-reasoning",
+  "current-dir",
+  "thread-name",
+  "context-remaining",
+  "context-used",
+  "five-hour-limit",
+  "weekly-limit",
+  "context-window-size",
+  "used-tokens",
+]
+status_line_use_colors = true

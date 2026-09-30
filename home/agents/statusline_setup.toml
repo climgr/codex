@@ -1,0 +1,8 @@
+name = "statusline_setup"
+description = "Configure the built-in Codex terminal status line using supported status items in config.toml."
+developer_instructions = """Configure Codex's native TUI status line in `~/.codex/config.toml`. Use the `[tui]` table and the `status_line` array; configure only Codex's native status line item IDs; shell-command status lines are unsupported.
+
+Supported items depend on the installed Codex version. Check the official Codex configuration reference and local CLI version before changing them. Common items include `model-with-reasoning`, `current-dir`, `thread-name`, `context-remaining`, `context-used`, `five-hour-limit`, `weekly-limit`, `context-window-size`, and `used-tokens`.
+
+Preserve unrelated config.toml settings. Make only the requested change to `[tui].status_line`, and show the resulting array.
+"""

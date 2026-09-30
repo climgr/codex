@@ -1,0 +1,132 @@
+# gitignore created on 05/06/26 at 19:40
+# Disable reminder in prompt
+ignoredirmessage
+
+# ignore commit message
+**/.gitcommit
+
+# ignore build failure markers
+**/.build_failed*
+
+# ignore backup files
+**/*.bak
+
+# ignore push/git control files
+**/.no_push
+**/.no_git
+
+# ignore install markers
+**/.installed
+
+# Local Claude runtime and imported audit notes are not Codex config sources
+.claude/
+/TODO.AI.md
+/AUDIT.AI.md
+
+# ignore work in progress scripts
+**/*.rewrite.sh
+**/*.refactor.sh
+
+# ignore dotenv files
+.env
+app.env
+default.env
+
+# ignore log and temp files
+*.log
+*.tmp
+*.temp
+
+# OS generated files
+### Linux ###
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+### macOS ###
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+*.icloud
+
+### Windows ###
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# keep README and main bash include
+!*/README*
+!inc/main.bash
+
+# AI tool — Codex (personal/secret only)
+.codex/settings.local.json
+# Codex runtime files — session data, edit history, backups, cache
+.codex/backups/
+.codex/cache/
+.codex/file-history/
+.codex/history.jsonl
+.codex/.credentials.json
+.codex/projects/
+.codex/plans/
+.codex/statsFile
+.codex/*.lock
+# codexmgr/config specific — home/ maps to ~/.codex/; ignore runtime dirs there too
+home/backups/
+home/cache/
+home/file-history/
+home/history.jsonl
+home/.credentials.json
+home/projects/
+home/statsFile
+home/*.lock
+
+# AI tool — Cursor (personal/secret only)
+.cursor/settings.json
+
+# AI tool — Windsurf (personal/secret only)
+.windsurf/settings.json
+
+# AI tool — Aider (history and cache; conf and ignore are committed)
+.aider.chat.history.md
+.aider.input.history
+.aider.llm.history
+.aider.tags.cache.v3/
+
+# AI tool — Continue (personal data; config.json is committed)
+.continue/dev_data/
+.continue/session.json
+.continue/index/
+
+# AI tool — Codeium / Windsurf cache
+.codeium/
+
+# AI tool — Cline / Roo (cache only; rules files are committed)
+.cline/cache/
+
+# AI tool — generic catch-all for personal/secret AI directories
+.ai/
