@@ -80,13 +80,24 @@ else
   INSTALL_SH_EXIT_STATUS=$?
 fi
 if [ "$INSTALL_SH_EXIT_STATUS" = 0 ]; then
-  mkdir -p "$HOME/.codex" || exit 1
-  if cp -R "$CLIMGR_LOCAL_REPO/home/." "$HOME/.codex/"; then
+  mkdir -p "$HOME/.codex" "$HOME/.agents/skills" || exit 1
+  for INSTALL_SH_ITEM in "$CLIMGR_LOCAL_REPO/home/"*; do
+    [ -e "$INSTALL_SH_ITEM" ] || continue
+    [ "${INSTALL_SH_ITEM##*/}" = "skills" ] && continue
+    cp -Rf "$INSTALL_SH_ITEM" "$HOME/.codex/"
+    INSTALL_SH_EXIT_STATUS=$?
+    [ "$INSTALL_SH_EXIT_STATUS" = 0 ] || break
+  done
+  if [ "$INSTALL_SH_EXIT_STATUS" = 0 ]; then
+    cp -Rf "$CLIMGR_LOCAL_REPO/home/skills/." "$HOME/.agents/skills/"
+    INSTALL_SH_EXIT_STATUS=$?
+  fi
+  if [ "$INSTALL_SH_EXIT_STATUS" = 0 ]; then
     find "$HOME/.codex/hooks" -type f -name '*.sh' -exec chmod 755 {} \; 2>/dev/null || true
     __printf_color "The Codex config files have been installed in $HOME/.codex" "$PRINTF_SET_GREEN"
+    __printf_color "Codex skills have been installed in $HOME/.agents/skills" "$PRINTF_SET_GREEN"
     __printf_color "Review and trust the installed hooks with /hooks in Codex" "$PRINTF_SET_YELLOW"
   else
-    INSTALL_SH_EXIT_STATUS=$?
     __printf_color "Failed to copy Codex config files (exit: $INSTALL_SH_EXIT_STATUS)" "$PRINTF_SET_RED" >&2
   fi
 fi

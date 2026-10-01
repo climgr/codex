@@ -1,6 +1,6 @@
 # climgr/config — Implementation Spec
 
-This repository is the source for user-level Codex configuration. `home/` mirrors the contents installed into `~/.codex/`; `install.sh` updates that directory additively.
+This repository is the source for user-level Codex configuration and skills. `install.sh` maps configuration from `home/` into `~/.codex/` and skills into `~/.agents/skills/`, overwriting matching files while preserving unrelated files.
 
 ## Repository layout
 
@@ -8,10 +8,10 @@ This repository is the source for user-level Codex configuration. `home/` mirror
 - `home/config.toml` — user-level Codex defaults.
 - `home/hooks.json` and `home/hooks/` — Codex lifecycle configuration and hook scripts.
 - `home/agents/*.toml` — custom Codex agent definitions.
-- `home/skills/*/SKILL.md` — Codex skills.
+- `home/skills/*/SKILL.md` — Codex skills installed to `$HOME/.agents/skills/`.
 - `home/memory/` — referenced convention files and their index.
 - `home/TEMPLATES/` — reusable project and feature specifications.
-- `install.sh` — clones or updates `https://github.com/climgr/config` and copies `home/` into `~/.codex/`.
+- `install.sh` — clones or updates `https://github.com/climgr/config` and deploys the Codex configuration and skills from `home/` to their user-level locations.
 
 ## Installer requirements
 
@@ -19,7 +19,8 @@ This repository is the source for user-level Codex configuration. `home/` mirror
 - Store the local checkout at `$HOME/.local/dotfiles/climgr/config`.
 - Update an existing checkout with a fast-forward-only pull; never discard its local changes.
 - Refuse to replace a non-git path at the checkout location.
-- Copy `home/.` to `$HOME/.codex/` without deleting unrelated user files.
+- Copy the Codex configuration from `home/` to `$HOME/.codex/`, overwriting matching files without deleting unrelated user files.
+- Copy `home/skills/` to `$HOME/.agents/skills/`, overwriting matching skills without deleting unrelated user files.
 - Mark installed shell hooks executable.
 - Do not update Codex itself, alter Codex authentication, or add/remove MCP servers or plugins.
 - Tell the user to review changed hook definitions with `/hooks` in Codex.

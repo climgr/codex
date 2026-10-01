@@ -10,7 +10,7 @@
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  test-lint-mark.sh
 # @@Description      :  PostToolUse Bash hook: records per session/project that a test-gate or lint-gate command exited 0, pairing with enforce-test-lint-gate.sh.
-# @@Changelog        :  Fixed a bug where this hook never wrote a marker for any command, pass or fail: the success check read a nonexistent .tool_response.exit_code field, which jq always defaulted to 1 via `// 1`. Replaced with a check of whether tool_response is an object (success) vs. a bare error string (nonzero exit) — the field Bash's tool_response actually carries, confirmed live. Previously test/lint patterns and the script-collection manifest disqualifier list were expanded to also recognize Kotlin/Gradle, Java/Maven, Ruby, PHP, Swift, Dart/Flutter, C/C++, .NET, and Elixir — kept in sync with enforce-test-lint-gate.sh's MANIFESTS/TEST_CMD_RE/LINT_CMD_RE.
+# @@Changelog        :  20261001: Recognize Taplo TOML lint and sh/bash syntax checks as gate evidence; keep matchers synchronized with enforce-test-lint-gate.sh.
 # @@TODO             :  None
 # @@Other              :  Only marks when tool_response is an object and interrupted == false — a failed or timed-out run must never count as passing.
 # @@Resource         :  AGENTS.md - Commit Workflow (Test gate, Lint gate), home/hooks/spec-guard-mark.sh
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609171200-git"
+VERSION="202609302150-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -78,7 +78,7 @@ TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bflutter[[:space:]]+test\b|\b
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bctest\b|\bdotnet[[:space:]]+test\b|\bmix[[:space:]]+test\b"
 printf '%s' "$TEST_LINT_MARK_CMD" | grep -qE -- "$TEST_LINT_MARK_TEST_RE" \
   && TEST_LINT_MARK_IS_TEST=1
-printf '%s' "$TEST_LINT_MARK_CMD" | grep -qE -- '\bbash[[:space:]]+-n\b' \
+printf '%s' "$TEST_LINT_MARK_CMD" | grep -qE -- '\b(bash|sh)[[:space:]]+-n\b' \
   && TEST_LINT_MARK_IS_BASHN=1
 # Lint gates: script-lint/go-lint/rust-lint agents (shell/Go/Rust), `npm run
 # lint` (node_typescript_conventions.md's Node/TS gate, `npx eslint` as its
@@ -93,6 +93,7 @@ TEST_LINT_MARK_LINT_RE='\bscript-lint\b|\bgo-lint\b|\brust-lint\b'
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bnpm[[:space:]]+run[[:space:]]+lint\b|\bnpx[[:space:]]+eslint\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bruff[[:space:]]+check\b|\bruff[[:space:]]+format[[:space:]]+--check\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bmake[[:space:]]+check\b"
+TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\btaplo[[:space:]]+lint\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\blintian\b|\brpmlint\b|\bnamcap\b|\bapkbuild-lint\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bbrew[[:space:]]+(audit|style)\b|\bsnapcraft[[:space:]]+lint\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bflatpak-builder-lint\b|\bappimagelint\b|\bnix[[:space:]]+flake[[:space:]]+check\b|\bstatix\b"

@@ -10,7 +10,7 @@
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  enforce-test-lint-gate.sh
 # @@Description      :  PreToolUse Bash hook: blocks the commit wrapper's `--dir <path> all` form unless the test and lint gates ran and passed this session for that project.
-# @@Changelog        :  Decode the stdin payload file as UTF-8 with replacement and fail open on any parse exception (not only JSONDecodeError) — a non-UTF-8 byte previously raised UnicodeDecodeError and surfaced as a hook error.
+# @@Changelog        :  20261001: Recognize Taplo TOML lint and sh/bash syntax checks as gate evidence; keep matchers synchronized with test-lint-mark.sh.
 # @@TODO             :  None
 # @@Other            :  Pairs with test-lint-mark.sh's per-session markers; a project-type heuristic picks the test path (manifest, script-collection re-read, or *.md fallback). TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> bypasses the gate for that one call — user-directed only, never Codex's own initiative.
 # @@Resource         :  AGENTS.md - Commit Workflow, home/hooks/test-lint-mark.sh, home/hooks/spec-guard.sh
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609170001-git"
+VERSION="202609302150-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -173,7 +173,7 @@ TEST_CMD_RE = re.compile(
     r"|\bdotnet\s+test\b"
     r"|\bmix\s+test\b"
 )
-BASHN_RE = re.compile(r"\bbash\s+-n\b")
+BASHN_RE = re.compile(r"\b(?:bash|sh)\s+-n\b")
 # Must stay in sync with test-lint-mark.sh's TEST_LINT_MARK_LINT_RE: the lint
 # agents (shell/Go/Rust), `npm run lint`/`npx eslint` (Node/TS gate per
 # node_typescript_conventions.md), `ruff check`/`ruff format --check` (Python
@@ -188,6 +188,7 @@ LINT_CMD_RE = re.compile(
     r"|\blintian\b|\brpmlint\b|\bnamcap\b|\bapkbuild-lint\b"
     r"|\bbrew\s+(audit|style)\b|\bsnapcraft\s+lint\b|\bflatpak-builder-lint\b"
     r"|\bappimagelint\b|\bnix\s+flake\s+check\b|\bstatix\b|\bmake\s+check\b"
+    r"|\btaplo\s+lint\b"
     r"|\bgradle\s+(lint|ktlintCheck|detekt)\b|\./gradlew\s+(lint|ktlintCheck|detekt)\b"
     r"|\bmvn\s+checkstyle:check\b|\bmvn\s+spotbugs:check\b"
     r"|\brubocop\b"

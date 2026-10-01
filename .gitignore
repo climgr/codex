@@ -18,6 +18,9 @@ ignoredirmessage
 # ignore install markers
 **/.installed
 
+# ignore locally installed tools
+/.tools/
+
 # Local Claude runtime and imported audit notes are not Codex config sources
 .claude/
 /TODO.AI.md

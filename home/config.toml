@@ -1,6 +1,7 @@
 # User-level Codex defaults. Hooks and custom agents live beside this file.
 model = "gpt-6-luna"
 model_reasoning_effort = "medium"
+personality = "pragmatic"
 approval_policy = "never"
 sandbox_mode = "workspace-write"
 web_search = "live"
@@ -14,6 +15,7 @@ network_access = true
 
 [tui]
 theme = "dracula"
+vim_mode_default = false
 status_line = [
   "model-with-reasoning",
   "context-used",
