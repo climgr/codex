@@ -1,6 +1,6 @@
 ---
 name: Project file conventions
-description: Full spec for AI.md, IDEA.md, AGENTS.md, and related files; template system in codexmgr
+description: Full spec for AI.md, IDEA.md, AGENTS.md, and related files; template system in climgr
 type: user
 ---
 
@@ -22,7 +22,7 @@ All relative file references (`AI.md`, `./src`, `./`) resolve from `$PWD`. Absol
 
 | File | Role | Mutable during work? |
 |------|------|----------------------|
-| **AI.md** | THE HOW — implementation spec, readonly copy of the type template (go/ or rust/). Never modified after initial copy. Placeholders resolve from IDEA.md at runtime. When the template is updated in codexmgr, re-copy this file — no merge needed because it was never touched. | No |
+| **AI.md** | THE HOW — implementation spec, readonly copy of the type template (go/ or rust/). Never modified after initial copy. Placeholders resolve from IDEA.md at runtime. When the template is updated in climgr, re-copy this file — no merge needed because it was never touched. | No |
 | **SPEC.md** | Project-specific rule overrides — the only place where project rules may contradict the template or global conventions. Created at project setup (may be empty); content added only when a rule must actively differ. SPEC.md wins over AI.md which wins over global AGENTS.md. | Yes — only when adding or changing rule overrides |
 | **IDEA.md** | THE WHAT — project intent, goal, and constraints only. Never the HOW. Three required sections (see below). | Yes |
 | **TODO.AI.md** | AI-owned task list. Required when working on more than 2 items. Completed items are REMOVED (not marked done and left). | Yes |

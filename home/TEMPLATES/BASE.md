@@ -2,7 +2,7 @@
 
 **Name**: {project_name}
 
-**About this file:** `BASE.md` is the generic fallback template. When applied to a project, this file is copied into the project as `AI.md`. Throughout this document, all references to `AI.md` refer to that resulting file in a real project. Replace this with a language-specific template from the codexmgr template repos (e.g. `~/Projects/github/codexmgr/go/SERVER.md`) once the project's language and shape are known.
+**About this file:** `BASE.md` is the generic fallback template. When applied to a project, this file is copied into the project as `AI.md`. Throughout this document, all references to `AI.md` refer to that resulting file in a real project. Replace this with a language-specific template from the climgr template repos (e.g. `~/Projects/github/climgr/go/SERVER.md`) once the project's language and shape are known.
 
 **Note:** `{PROJECT_NAME}` and `{project_name}` in this file are reference tokens, not setup-time text replacements. Their values are resolved from `IDEA.md ## Project variables` while `AI.md` remains read-only.
 
@@ -107,7 +107,7 @@ security assumptions, and any exceptions.)
   gitignored. One markdown file per topic, YAML frontmatter (`name`, `description`,
   `type: project`), indexed by `.codex/memory/MEMORY.md`, read on demand. Same
   credential-masking rule as everywhere else. `~/.codex/**` (global) stays
-  read-only, deployed only via `codexmgr/config`'s `install.sh`; `.codex/memory/`
+  read-only, deployed only via `climgr/config`'s `install.sh`; `.codex/memory/`
   here is read/write in this repo directly
 
 ## ⚠️ CRITICAL: Language is Determined by IDEA.md
@@ -115,7 +115,7 @@ security assumptions, and any exceptions.)
 This is a generic template. The implementation language, toolchain, and build system are defined by `IDEA.md ## Project variables` (`language:` key). Before writing any code:
 
 1. Read `IDEA.md` to determine the language
-2. Check whether a language-specific template exists in `~/Projects/github/codexmgr/{language}/` and recommend upgrading AI.md to it
+2. Check whether a language-specific template exists in `~/Projects/github/climgr/{language}/` and recommend upgrading AI.md to it
 3. Apply the global `~/.codex/AGENTS.md` language constraints for the detected language
 4. If `language:` is missing from IDEA.md, ask — never assume
 

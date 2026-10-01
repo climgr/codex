@@ -1,6 +1,6 @@
 ---
 name: Kotlin conventions
-description: Build system, project layout, Gradle targets, and code rules for CasjaysDev Kotlin projects (non-Android; Android-specific layout stays in the codexmgr/android template repo)
+description: Build system, project layout, Gradle targets, and code rules for CasjaysDev Kotlin projects (non-Android; Android-specific layout stays in the climgr/android template repo)
 type: user
 ---
 

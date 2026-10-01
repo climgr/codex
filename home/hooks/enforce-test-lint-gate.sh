@@ -177,7 +177,7 @@ BASHN_RE = re.compile(r"\bbash\s+-n\b")
 # Must stay in sync with test-lint-mark.sh's TEST_LINT_MARK_LINT_RE: the lint
 # agents (shell/Go/Rust), `npm run lint`/`npx eslint` (Node/TS gate per
 # node_typescript_conventions.md), `ruff check`/`ruff format --check` (Python
-# gate per python_conventions.md), `make check` (codexmgr/android's
+# gate per python_conventions.md), `make check` (climgr/android's
 # APPLICATION.md gate — compile + ktlint/detekt lint + JVM unit tests in one
 # Docker-run command; ktlint/detekt are never invoked directly on the host),
 # and the packaging-type per-format linters (project_type_conventions.md's

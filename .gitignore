@@ -95,7 +95,7 @@ $RECYCLE.BIN/
 .codex/plans/
 .codex/statsFile
 .codex/*.lock
-# codexmgr/config specific — home/ maps to ~/.codex/; ignore runtime dirs there too
+# climgr/config specific — home/ maps to ~/.codex/; ignore runtime dirs there too
 home/backups/
 home/cache/
 home/file-history/

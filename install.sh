@@ -40,7 +40,7 @@ __function_exists() { case "$(type "$1" 2>/dev/null)" in *function*) return 0 ;;
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # custom functions
 __git_clone() { git clone "$1" "$2" -q; }
-__git_local() { git -C "$CODEXMGR_LOCAL_REPO" "$@"; }
+__git_local() { git -C "$CLIMGR_LOCAL_REPO" "$@"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # Define variables
 PRINTF_SET_BLACK='\033[1;30m'
@@ -53,8 +53,8 @@ PRINTF_SET_CYAN='\033[0;36m'
 PRINTF_SET_WHITE='\033[1;37m'
 PRINTF_SET_RESET='\033[0m'
 INSTALL_SH_EXIT_STATUS=0
-CODEXMGR_LOCAL_REPO="$HOME/.local/dotfiles/codexmgr/config"
-CODEXMGR_CONFIG_REPO="https://github.com/codexmgr/config"
+CLIMGR_LOCAL_REPO="$HOME/.local/dotfiles/climgr/config"
+CLIMGR_CONFIG_REPO="https://github.com/climgr/config"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # Main application
 if ! __cmd_exists git; then
@@ -65,23 +65,23 @@ if ! __cmd_exists codex; then
   __printf_color "Codex CLI is not installed; install it before running this script" "$PRINTF_SET_RED" >&2
   exit 1
 fi
-if [ -d "$CODEXMGR_LOCAL_REPO/.git" ]; then
-  __printf_color "Updating the Codex config repo in $CODEXMGR_LOCAL_REPO" "$PRINTF_SET_CYAN"
+if [ -d "$CLIMGR_LOCAL_REPO/.git" ]; then
+  __printf_color "Updating the Codex config repo in $CLIMGR_LOCAL_REPO" "$PRINTF_SET_CYAN"
   __git_local pull --ff-only -q
   INSTALL_SH_EXIT_STATUS=$?
 else
-  if [ -e "$CODEXMGR_LOCAL_REPO" ]; then
-    __printf_color "Refusing to replace $CODEXMGR_LOCAL_REPO because it is not a git checkout" "$PRINTF_SET_RED" >&2
+  if [ -e "$CLIMGR_LOCAL_REPO" ]; then
+    __printf_color "Refusing to replace $CLIMGR_LOCAL_REPO because it is not a git checkout" "$PRINTF_SET_RED" >&2
     exit 1
   fi
-  mkdir -p "${CODEXMGR_LOCAL_REPO%/*}"
-  __printf_color "Cloning $CODEXMGR_CONFIG_REPO to $CODEXMGR_LOCAL_REPO" "$PRINTF_SET_CYAN"
-  __git_clone "$CODEXMGR_CONFIG_REPO" "$CODEXMGR_LOCAL_REPO"
+  mkdir -p "${CLIMGR_LOCAL_REPO%/*}"
+  __printf_color "Cloning $CLIMGR_CONFIG_REPO to $CLIMGR_LOCAL_REPO" "$PRINTF_SET_CYAN"
+  __git_clone "$CLIMGR_CONFIG_REPO" "$CLIMGR_LOCAL_REPO"
   INSTALL_SH_EXIT_STATUS=$?
 fi
 if [ "$INSTALL_SH_EXIT_STATUS" = 0 ]; then
   mkdir -p "$HOME/.codex" || exit 1
-  if cp -R "$CODEXMGR_LOCAL_REPO/home/." "$HOME/.codex/"; then
+  if cp -R "$CLIMGR_LOCAL_REPO/home/." "$HOME/.codex/"; then
     find "$HOME/.codex/hooks" -type f -name '*.sh' -exec chmod 755 {} \; 2>/dev/null || true
     __printf_color "The Codex config files have been installed in $HOME/.codex" "$PRINTF_SET_GREEN"
     __printf_color "Review and trust the installed hooks with /hooks in Codex" "$PRINTF_SET_YELLOW"

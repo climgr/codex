@@ -52,7 +52,7 @@ SPEC_GUARD_MARK_PROJECT=$(realpath -- "$SPEC_GUARD_MARK_PROJECT" 2>/dev/null) ||
 
 # Mark on AI.md or SPEC.md directly - the two files spec-guard.sh gates on.
 # Template-repo fallback: a project with neither AI.md nor SPEC.md at its root
-# (e.g. codexmgr/{go,rust,android,docker,mgr} - the spec is a root-level *.md
+# (e.g. climgr/{go,rust,android,docker,mgr} - the spec is a root-level *.md
 # template file like APPLICATION.md/COMPOSEMGR.md/SCRIPT.md, never named
 # AI.md/SPEC.md) marks on any such root-level *.md read instead, excluding the
 # well-known non-spec meta filenames.

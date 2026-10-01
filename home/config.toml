@@ -16,13 +16,12 @@ network_access = true
 theme = "dracula"
 status_line = [
   "model-with-reasoning",
-  "current-dir",
-  "thread-name",
-  "context-remaining",
   "context-used",
   "five-hour-limit",
   "weekly-limit",
-  "context-window-size",
+  "current-dir",
+  "git-branch",
+  "thread-name",
   "used-tokens",
 ]
 status_line_use_colors = true

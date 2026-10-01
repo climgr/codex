@@ -95,7 +95,7 @@ norm_path = file_path.replace("\\", "/")
 # git repo root, never the session's process cwd — payload["cwd"] can be a
 # parent directory (e.g. a manager repo cwd'd one level above the project),
 # which misidentifies the project's own root-level directory name (e.g. a
-# repo literally named "config", like codexmgr/config) as the forbidden
+# repo literally named "config", like climgr/config) as the forbidden
 # config/ root dir. Resolve via `git -C <file_dir> rev-parse --show-toplevel`
 # first; fall back to payload["cwd"] only when the file isn't inside a git
 # repo (e.g. a not-yet-initialized project).
@@ -462,8 +462,12 @@ FORBIDDEN_EXTENSIONS = {
 # here unless it is meant to be refused outright, never written at all.
 
 # Patterns split to avoid triggering sibling hooks on this file itself
-_ca = "co-authored-by"
-_ai_tools = ["claude", "copilot", "chatgpt", "gpt"]
+_ca = r"co[- ]?authored[- ]by"
+_ai_tools = [
+    "codex", "openai", "chatgpt", "chat[ -]?gpt", "gpt", "claude",
+    "anthropic", "gemini", "copilot", "cursor", "windsurf", "perplexity",
+    "deepseek", "mistral", "qwen", "llama",
+]
 FORBIDDEN_PATH_PATTERNS = [
     (_ca + r".*(" + "|".join(_ai_tools) + r")", "AI attribution trailer in path"),
     (r"generated (with|by) (" + "|".join(_ai_tools) + r"|openai|anthropic)", "AI attribution phrase in path"),

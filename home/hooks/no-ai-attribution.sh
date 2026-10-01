@@ -31,8 +31,8 @@ set -uo pipefail
 # Blocked (verb + connector + AI name, plus trailer forms):
 #   verbs: Generated / Written / Created / Authored / Built / Made / Assisted
 #   connectors: by / with / using
-#   names: Codex, OpenAI, "an AI"
-#   trailers: the Co + Authored + By git trailer naming Codex/OpenAI
+#   names: coding assistants and AI providers listed in _assistant_names
+#   trailers: Co-Authored-By and Co-Authored By forms naming those assistants
 #   (ASCII hyphen or Unicode non-breaking hyphen U+2011 between the words),
 #   the "AI" + hyphen + "generated" adjective, robot-emoji attribution lines
 #
@@ -43,18 +43,22 @@ set -uo pipefail
 # Pattern pieces are assembled from split strings so this file never trips its own scanner
 _verbs='(generated|written|created|authored|built|made|assisted)'
 _conn='(by|with|using)'
-_ai='(codex|openai|claude|anthropic|an? ai\b)'
+_assistant_names='(codex|openai|chatgpt|chat[ -]?gpt|gpt([- ][[:alnum:].]+)?'
+_assistant_names="${_assistant_names}|claude|anthropic|gemini|github copilot|copilot"
+_assistant_names="${_assistant_names}|cursor|windsurf|perplexity|deepseek|mistral|qwen|llama)"
+_ai="(${_assistant_names}|an? ai\b)"
 # ASCII hyphen or Unicode non-breaking hyphen (U+2011) between trailer words
 _hyph='(-|‑)'
 _ca="co${_hyph}authored${_hyph}by"
 _gen='generated'
 ATTRIBUTION_PATTERN="${_verbs}[[:space:]]+${_conn}[[:space:]]+${_ai}"
-ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|${_ca}:[[:space:]]*(codex|openai|claude|anthropic)"
-ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|co_authored_by:[[:space:]]*(codex|openai|claude|anthropic)"
+ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|${_ca}:[[:space:]]*${_assistant_names}"
+ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|co_authored_by:[[:space:]]*${_assistant_names}"
+ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|co[- ]?authored[[:space:]]+(by|with)[[:space:]]*${_assistant_names}"
 ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|\bai[- ]${_gen}\b|🤖[[:space:]]*${_verbs}"
 ATTRIBUTION_FILE_CREDIT="(this[[:space:]]+file[[:space:]]+(was|is)[[:space:]]+"
 ATTRIBUTION_FILE_CREDIT="${ATTRIBUTION_FILE_CREDIT}(${_gen}|written|created)[[:space:]]+by[[:space:]]+"
-ATTRIBUTION_FILE_CREDIT="${ATTRIBUTION_FILE_CREDIT}(codex|openai|claude|anthropic|ai\b))"
+ATTRIBUTION_FILE_CREDIT="${ATTRIBUTION_FILE_CREDIT}(${_assistant_names}|ai\b))"
 ATTRIBUTION_PATTERN="${ATTRIBUTION_PATTERN}|${ATTRIBUTION_FILE_CREDIT}"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 __require_cmd() {

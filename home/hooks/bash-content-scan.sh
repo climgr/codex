@@ -232,17 +232,23 @@ if not in_zone:
 # - - - AI attribution (mirrors no-ai-attribution.sh) - - -
 _verbs = r"(generated|written|created|authored|built|made|assisted)"
 _conn = r"(by|with|using)"
-_ai = r"(codex|openai|claude|anthropic|an? ai\b)"
+_assistant_names = (
+    r"(codex|openai|chatgpt|chat[ -]?gpt|gpt([- ][A-Za-z0-9.]+)?|"
+    r"claude|anthropic|gemini|github copilot|copilot|cursor|windsurf|"
+    r"perplexity|deepseek|mistral|qwen|llama)"
+)
+_ai = r"(" + _assistant_names + r"|an? ai\b)"
 _hyph = r"(-|‑)"
 _ca = r"co" + _hyph + r"authored" + _hyph + r"by"
 _gen = r"generated"
 ATTRIBUTION_PATTERN = re.compile(
     _verbs + r"\s+" + _conn + r"\s+" + _ai
-    + r"|" + _ca + r":\s*(codex|openai|claude|anthropic)"
-    + r"|co_authored_by:\s*(codex|openai|claude|anthropic)"
+    + r"|" + _ca + r":\s*" + _assistant_names
+    + r"|co_authored_by:\s*" + _assistant_names
+    + r"|co[- ]?authored\s+(by|with)\s*" + _assistant_names
     + r"|\bai[- ]" + _gen + r"\b"
     + "|\U0001F916" + r"\s*" + _verbs
-    + r"|(this\s+file\s+(was|is)\s+(" + _gen + r"|written|created)\s+by\s+(codex|openai|claude|anthropic|ai\b))",
+    + r"|(this\s+file\s+(was|is)\s+(" + _gen + r"|written|created)\s+by\s+(" + _assistant_names + r"|ai\b))",
     re.IGNORECASE,
 )
 # no-ai-attribution.sh anchors this pattern to the start of each line after

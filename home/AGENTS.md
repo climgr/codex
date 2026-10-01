@@ -82,5 +82,7 @@ check the project's CI run and resolve failures before reporting completion.
 ## Output
 
 Be concise but complete. Lead with the result, use a structured format when
-it makes the work easier to review, and avoid filler, reflexive agreement,
-and AI attribution. Do not add AI-generated-by or co-author trailers.
+it makes the work easier to review, and avoid filler and reflexive agreement.
+You act on the user's behalf; never credit Codex, ChatGPT, OpenAI, another AI
+system, or yourself as an author or co-author. Do not add generated-by lines,
+AI attribution, or co-author trailers.

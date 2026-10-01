@@ -1,20 +1,20 @@
 # Project description
 
-`codexmgr/config` distributes the Codex configuration maintained by this organization. The repository contains user-level instructions, settings, custom agents, skills, lifecycle hooks, memory references, and reusable templates. `install.sh` copies the repository's `home/` tree into `~/.codex/`.
+`climgr/config` distributes the Codex configuration maintained by this organization. The repository contains user-level instructions, settings, custom agents, skills, lifecycle hooks, memory references, and reusable templates. `install.sh` copies the repository's `home/` tree into `~/.codex/`.
 
 ## Project variables
 
 project_name: config
-project_org: codexmgr
+project_org: climgr
 internal_name: config
-internal_org: codexmgr
+internal_org: climgr
 deploy_target: ~/.codex
 source_dir: home
 
 ## Business logic
 
 - `home/` is the version-controlled source for the user-level Codex setup installed in `~/.codex/`.
-- `install.sh` clones or fast-forwards `https://github.com/codexmgr/config`, then copies `home/` into `~/.codex/` without removing unrelated files.
+- `install.sh` clones or fast-forwards `https://github.com/climgr/config`, then copies `home/` into `~/.codex/` without removing unrelated files.
 - The installer requires Git and the Codex CLI; it does not install/update Codex or alter authentication, MCP servers, or plugins.
 - Hook definitions are reviewed and trusted in Codex with `/hooks` after installation or when definitions change.
 - Configuration changes should remain valid for Codex and must not rely on Claude-only settings, agent formats, or lifecycle behavior.

@@ -1,4 +1,4 @@
-# codexmgr/config — Implementation Spec
+# climgr/config — Implementation Spec
 
 This repository is the source for user-level Codex configuration. `home/` mirrors the contents installed into `~/.codex/`; `install.sh` updates that directory additively.
 
@@ -11,12 +11,12 @@ This repository is the source for user-level Codex configuration. `home/` mirror
 - `home/skills/*/SKILL.md` — Codex skills.
 - `home/memory/` — referenced convention files and their index.
 - `home/TEMPLATES/` — reusable project and feature specifications.
-- `install.sh` — clones or updates `https://github.com/codexmgr/config` and copies `home/` into `~/.codex/`.
+- `install.sh` — clones or updates `https://github.com/climgr/config` and copies `home/` into `~/.codex/`.
 
 ## Installer requirements
 
 - Require `git` and the `codex` CLI to be available.
-- Store the local checkout at `$HOME/.local/dotfiles/codexmgr/config`.
+- Store the local checkout at `$HOME/.local/dotfiles/climgr/config`.
 - Update an existing checkout with a fast-forward-only pull; never discard its local changes.
 - Refuse to replace a non-git path at the checkout location.
 - Copy `home/.` to `$HOME/.codex/` without deleting unrelated user files.

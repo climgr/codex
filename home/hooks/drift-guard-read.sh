@@ -12,7 +12,7 @@
 # @@Description      :  PreToolUse Read+Bash hook: block reading ~/.codex/ deployed copies when a home/ source exists
 # @@Changelog        :  Decode the stdin payload file as UTF-8 with replacement and fail open on any parse exception (not only JSONDecodeError) — a non-UTF-8 byte previously raised UnicodeDecodeError and surfaced as a hook error.
 # @@TODO             :
-# @@Other            :  Fires only when inside a codexmgr/config project (detected by presence of home/AGENTS.md); fails open if the home/ source doesn't exist; DRIFT_GUARD_ALLOW=1 <cmd> bypasses the block for that one Bash call
+# @@Other            :  Fires only when inside a climgr/config project (detected by presence of home/AGENTS.md); fails open if the home/ source doesn't exist; DRIFT_GUARD_ALLOW=1 <cmd> bypasses the block for that one Bash call
 # @@Resource         :  home/hooks/no-read-gitcommit.sh
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 VERSION="202609170001-git"

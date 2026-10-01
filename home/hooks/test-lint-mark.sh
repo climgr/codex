@@ -83,7 +83,7 @@ printf '%s' "$TEST_LINT_MARK_CMD" | grep -qE -- '\bbash[[:space:]]+-n\b' \
 # Lint gates: script-lint/go-lint/rust-lint agents (shell/Go/Rust), `npm run
 # lint` (node_typescript_conventions.md's Node/TS gate, `npx eslint` as its
 # direct form), `ruff check` / `ruff format --check` (python_conventions.md's
-# Python gate), `make check` (codexmgr/android's APPLICATION.md gate —
+# Python gate), `make check` (climgr/android's APPLICATION.md gate —
 # compile + ktlint/detekt lint + JVM unit tests in one Docker-run command;
 # ktlint/detekt are never invoked directly on the host, so there is no
 # separate bare-tool pattern to match), and the packaging-type per-format

@@ -1,6 +1,6 @@
-# codexmgr/config
+# climgr/config
 
-Codex user configuration maintained by the `codexmgr` organization. The `home/` tree is installed into `~/.codex/` by `install.sh`.
+Codex user configuration maintained by the `climgr` organization. The `home/` tree is installed into `~/.codex/` by `install.sh`.
 
 ## Contents
 
@@ -20,9 +20,9 @@ Codex user configuration maintained by the `codexmgr` organization. The `home/` 
 Requires Git and the Codex CLI. Review the installer before running it:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/codexmgr/config/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/climgr/config/main/install.sh | sh
 ```
 
-The installer fast-forwards the local checkout at `~/.local/dotfiles/codexmgr/config` and copies `home/` into `~/.codex/` without deleting unrelated files. It does not install or update Codex, modify authentication, or change MCP servers or plugins.
+The installer fast-forwards the local checkout at `~/.local/dotfiles/climgr/config` and copies `home/` into `~/.codex/` without deleting unrelated files. It does not install or update Codex, modify authentication, or change MCP servers or plugins.
 
 After installation or hook changes, review and trust hook definitions with `/hooks` in Codex.
