@@ -1,4 +1,4 @@
-# climgr/config — Implementation Spec
+# climgr/codex — Implementation Spec
 
 This repository is the source for user-level Codex configuration and skills. `install.sh` maps configuration from `home/` into `~/.codex/` and skills into `~/.agents/skills/`, overwriting matching files while preserving unrelated files.
 
@@ -11,12 +11,12 @@ This repository is the source for user-level Codex configuration and skills. `in
 - `home/skills/*/SKILL.md` — Codex skills installed to `$HOME/.agents/skills/`.
 - `home/memory/` — referenced convention files and their index.
 - `home/TEMPLATES/` — reusable project and feature specifications.
-- `install.sh` — clones or updates `https://github.com/climgr/config` and deploys the Codex configuration and skills from `home/` to their user-level locations.
+- `install.sh` — clones or updates `https://github.com/climgr/codex` and deploys the Codex configuration and skills from `home/` to their user-level locations.
 
 ## Installer requirements
 
 - Require `git` and the `codex` CLI to be available.
-- Store the local checkout at `$HOME/.local/dotfiles/climgr/config`.
+- Store the local checkout at `$HOME/.local/dotfiles/climgr/codex`.
 - Update an existing checkout with a fast-forward-only pull; never discard its local changes.
 - Refuse to replace a non-git path at the checkout location.
 - Copy the Codex configuration from `home/` to `$HOME/.codex/`, overwriting matching files without deleting unrelated user files.
@@ -33,7 +33,7 @@ All deployed behavior must use Codex-supported formats and paths. Use `AGENTS.md
 
 There is no build step. Before committing changes:
 
-1. Run `sh -n install.sh` and `bash -n` on changed Bash scripts.
+1. Run shell syntax checks through `bash "$HOME/.codex/hooks/test-lint-run.sh" test -- <command>` so Codex can verify the exit status; run `bash -n` on changed Bash scripts and `sh -n install.sh` through that wrapper.
 2. Run the applicable script lint workflow.
 3. Validate `home/config.toml`, all agent TOML files, and `home/hooks.json` with parsers.
 4. Update this file and `README.md` when installer behavior or repository contents change.

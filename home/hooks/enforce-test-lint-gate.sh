@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609170001-git
+##@Version           :  202610020003-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,10 +9,10 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  enforce-test-lint-gate.sh
-# @@Description      :  PreToolUse Bash hook: blocks the commit wrapper's `--dir <path> all` form unless the test and lint gates ran and passed this session for that project.
-# @@Changelog        :  20261001: Recognize Taplo TOML lint and sh/bash syntax checks as gate evidence; keep matchers synchronized with test-lint-mark.sh.
+# @@Description      :  PreToolUse Bash hook: requires explicit Codex gate-result markers before the commit wrapper runs.
+# @@Changelog        :  20261002: Remove unsupported transcript success inference; require exit-status sentinels from test-lint-run.sh.
 # @@TODO             :  None
-# @@Other            :  Pairs with test-lint-mark.sh's per-session markers; a project-type heuristic picks the test path (manifest, script-collection re-read, or *.md fallback). TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> bypasses the gate for that one call — user-directed only, never Codex's own initiative.
+# @@Other            :  Pairs with test-lint-mark.sh and lint-agent-mark.sh. TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> bypasses the gate for that one call — user-directed only, never Codex's own initiative.
 # @@Resource         :  AGENTS.md - Commit Workflow, home/hooks/test-lint-mark.sh, home/hooks/spec-guard.sh
 # @@Terminal App     :  no
 # @@sudo/root        :  no
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609302150-git"
+VERSION="202610020003-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -80,7 +80,6 @@ if payload.get("tool_name", "") != "Bash":
 
 cmd = payload.get("tool_input", {}).get("command", "")
 session_id = payload.get("session_id", "")
-transcript_path = payload.get("transcript_path", "")
 if not cmd or not session_id or not re.search(r"\bgitcommit\b", cmd):
     sys.exit(0)
 
@@ -122,14 +121,12 @@ targets = list(find_gitcommit_dir(cmd))
 if not targets:
     sys.exit(0)
 
-# TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> — explicit, per-invocation, user-
-# directed bypass for the confirmed upstream bug documented below (test-lint-
-# mark.sh's PostToolUse marker never firing). Codex sets this prefix only
-# when the user's own message explicitly says to bypass/skip the gate after
-# confirming they already verified the test/lint run passed — never on its
-# own initiative just because the gate blocked (AGENTS.md: "never auto-bypass
-# a hook block"). Same prefix pattern as drift-guard-read.sh's
-# DRIFT_GUARD_ALLOW=1.
+# TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> is an explicit, per-invocation,
+# user-directed bypass. Codex sets this prefix only when the user's own
+# message explicitly says to bypass/skip the gate after confirming they
+# already verified the test/lint run passed — never on its own initiative
+# just because the gate blocked (AGENTS.md: "never auto-bypass a hook").
+# Same prefix pattern as drift-guard-read.sh's DRIFT_GUARD_ALLOW=1.
 if any(override for _target, override in targets):
     sys.exit(0)
 
@@ -158,222 +155,10 @@ def marked(marker_file, project):
         return False
 
 
-# If a hook marker is missing, inspect the Codex transcript as a secondary
-# signal that a matching test command ran and passed. This only runs when the
-# command already matched `gitcommit` above.
-TEST_CMD_RE = re.compile(
-    r"\bmake\s+test\b|\bgo\s+test\b|\bcargo\s+test\b|\bpytest\b|\bnpm\s+(run\s+)?test\b"
-    r"|\bmake\s+check\b"
-    r"|\bgradle\s+test\b|\./gradlew\s+test\b|\bmvn\s+test\b"
-    r"|\brspec\b|\bbundle\s+exec\s+rspec\b|\brake\s+test\b"
-    r"|\bphpunit\b|\bcomposer\s+test\b"
-    r"|\bswift\s+test\b"
-    r"|\bflutter\s+test\b|\bdart\s+test\b"
-    r"|\bctest\b"
-    r"|\bdotnet\s+test\b"
-    r"|\bmix\s+test\b"
-)
-BASHN_RE = re.compile(r"\b(?:bash|sh)\s+-n\b")
-# Must stay in sync with test-lint-mark.sh's TEST_LINT_MARK_LINT_RE: the lint
-# agents (shell/Go/Rust), `npm run lint`/`npx eslint` (Node/TS gate per
-# node_typescript_conventions.md), `ruff check`/`ruff format --check` (Python
-# gate per python_conventions.md), `make check` (climgr/android's
-# APPLICATION.md gate — compile + ktlint/detekt lint + JVM unit tests in one
-# Docker-run command; ktlint/detekt are never invoked directly on the host),
-# and the packaging-type per-format linters (project_type_conventions.md's
-# Format matrix).
-LINT_CMD_RE = re.compile(
-    r"\bscript_lint\b|\bgo_lint\b|\brust_lint\b|\bnpm\s+run\s+lint\b"
-    r"|\bnpx\s+eslint\b|\bruff\s+check\b|\bruff\s+format\s+--check\b"
-    r"|\blintian\b|\brpmlint\b|\bnamcap\b|\bapkbuild-lint\b"
-    r"|\bbrew\s+(audit|style)\b|\bsnapcraft\s+lint\b|\bflatpak-builder-lint\b"
-    r"|\bappimagelint\b|\bnix\s+flake\s+check\b|\bstatix\b|\bmake\s+check\b"
-    r"|\btaplo\s+lint\b"
-    r"|\bgradle\s+(lint|ktlintCheck|detekt)\b|\./gradlew\s+(lint|ktlintCheck|detekt)\b"
-    r"|\bmvn\s+checkstyle:check\b|\bmvn\s+spotbugs:check\b"
-    r"|\brubocop\b"
-    r"|\bphpcs\b|\bphp-cs-fixer\b|\bphpstan\b"
-    r"|\bswiftlint\b"
-    r"|\bflutter\s+analyze\b|\bdart\s+analyze\b"
-    r"|\bclang-tidy\b|\bcppcheck\b"
-    r"|\bdotnet\s+format\s+--verify-no-changes\b"
-    r"|\bmix\s+credo\b|\bmix\s+format\s+--check-formatted\b"
-)
-# No new lint-agent subagent_types are added for the languages below —
-# coverage is via TEST_CMD_RE/LINT_CMD_RE direct-command matching plus a
-# dedicated ~/.codex/memory/{lang}_conventions.md reference file per
-# language (see home/AGENTS.md's Language Constraints section), the same
-# pattern already used for Node/TS (npm run lint) and Python (ruff).
-# The lint agents are as often launched via the Agent tool (subagent_type
-# script_lint/go_lint/rust_lint) as via a literal Bash command — the Bash-only
-# scan above missed every Agent-tool run entirely, permanently false-blocking
-# gitcommit for anyone who runs the lint agent that way. Same new/pre-existing
-# contract lint-agent-mark.sh's SubagentStop hook checks (this PART's own
-# Resource note): only a report with a nonzero "N new issue(s) found" line
-# disqualifies it — pre-existing findings (outside the lines this session's
-# uncommitted changes touch) never block on their own, since the agent's own
-# spec requires the calling session to log those to TODO.AI.md instead.
-LINT_AGENT_TYPES = {"script_lint", "go_lint", "rust_lint"}
-LINT_AGENT_CLEAN_RE = re.compile(r":\s*clean\b|:\s*0\s+new issue\(s\)\s+found\b")
-LINT_AGENT_ISSUES_RE = re.compile(r":\s*[1-9][0-9]*\s+new issue\(s\)\s+found\b")
-
-
-def _agent_result_text(content):
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                parts.append(item.get("text", ""))
-        return "\n".join(parts)
-    return ""
-
-
-def _mentions(text, project):
-    if not text or not project:
-        return False
-    return re.search(re.escape(project) + r"(?![\w.\-])", text) is not None
-
-
-def transcript_pass(transcript_path, project, allow_bashn_as_test):
-    if not transcript_path or not os.path.isfile(transcript_path):
-        return False, False
-    tool_use_cmds = {}
-    lint_agent_ids = {}
-    agent_prompts = {}
-    test_ok = False
-    lint_ok = False
-    # Async hand-back delivery is NOT a "user" transcript entry — confirmed
-    # against a live transcript (2.1.277): it lands as a "type":"attachment"
-    # entry whose rendered[].content carries the "<agent-message from=...>
-    # [Subagent hand-back]" text, with no cwd field of its own. Track the
-    # most recently seen cwd from any entry so those attachment entries can
-    # still be judged cwd_match, same as a "user" entry would be.
-    last_cwd_project = ""
-    try:
-        with open(transcript_path, errors="ignore") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(entry, dict):
-                    continue
-                etype = entry.get("type")
-                # "message" (and its "content") can legitimately be null or a
-                # non-list in some transcript entries (e.g. summary/system
-                # lines) - .get()'s default only covers a MISSING key, not a
-                # present null, so each level is defensively re-checked
-                # rather than trusting the transcript's shape (reproduced
-                # AttributeError: 'NoneType' object has no attribute 'get').
-                if etype == "assistant":
-                    msg = entry.get("message")
-                    content = msg.get("content") if isinstance(msg, dict) else None
-                    for c in content or []:
-                        if not isinstance(c, dict):
-                            continue
-                        if c.get("type") == "tool_use" and c.get("name") == "Bash":
-                            inp = c.get("input")
-                            cmd_ = inp.get("command", "") if isinstance(inp, dict) else ""
-                            if cmd_:
-                                tool_use_cmds[c.get("id")] = cmd_
-                        elif c.get("type") == "tool_use" and c.get("name") == "Agent":
-                            inp = c.get("input")
-                            subagent_ = inp.get("subagent_type", "") if isinstance(inp, dict) else ""
-                            if subagent_ in LINT_AGENT_TYPES:
-                                prompt_ = inp.get("prompt", "") if isinstance(inp, dict) else ""
-                                lint_agent_ids[c.get("id")] = prompt_ if isinstance(prompt_, str) else ""
-                elif etype == "attachment":
-                    rendered = entry.get("rendered")
-                    text_ = ""
-                    if isinstance(rendered, list) and rendered:
-                        first_ = rendered[0]
-                        text_ = first_.get("content", "") if isinstance(first_, dict) else ""
-                    if not isinstance(text_, str) or "hand-back" not in text_.lower():
-                        continue
-                    from_ = re.search(r'from="(\w+)"', text_)
-                    prompt_ = agent_prompts.get(from_.group(1), "") if from_ else ""
-                    cwd_match = bool(last_cwd_project) and last_cwd_project == project
-                    if not (cwd_match or _mentions(prompt_, project) or _mentions(text_, project)):
-                        continue
-                    if LINT_AGENT_CLEAN_RE.search(text_) and not LINT_AGENT_ISSUES_RE.search(text_):
-                        lint_ok = True
-                elif etype == "user":
-                    entry_cwd = entry.get("cwd", "")
-                    try:
-                        entry_project = os.path.realpath(entry_cwd) if entry_cwd else ""
-                        if entry_project:
-                            last_cwd_project = entry_project
-                    except OSError:
-                        entry_project = ""
-                    # A session is routinely run from a parent directory while
-                    # linting/testing a sibling repo, so the entry's cwd alone
-                    # cannot decide relevance: a result also counts for this
-                    # project when the command / agent prompt / report names
-                    # the project path.
-                    cwd_match = entry_project == project
-                    tur = entry.get("toolUseResult") or {}
-                    if not isinstance(tur, dict):
-                        tur = {}
-                    if tur.get("interrupted"):
-                        continue
-                    msg = entry.get("message")
-                    content = msg.get("content") if isinstance(msg, dict) else None
-                    if isinstance(content, str):
-                        content = [{"type": "text", "text": content}]
-                    for c in content or []:
-                        if not isinstance(c, dict):
-                            continue
-                        if c.get("type") == "text":
-                            # Async Agent-tool runs only return a "launched"
-                            # tool_result; the real report arrives later as a
-                            # hand-back message keyed by the agent id.
-                            text_ = c.get("text", "")
-                            if not isinstance(text_, str) or "hand-back" not in text_.lower():
-                                continue
-                            from_ = re.search(r'from="(\w+)"', text_)
-                            prompt_ = agent_prompts.get(from_.group(1), "") if from_ else ""
-                            if not (cwd_match or _mentions(prompt_, project) or _mentions(text_, project)):
-                                continue
-                            if LINT_AGENT_CLEAN_RE.search(text_) and not LINT_AGENT_ISSUES_RE.search(text_):
-                                lint_ok = True
-                            continue
-                        if c.get("type") != "tool_result" or c.get("is_error"):
-                            continue
-                        tool_use_id_ = c.get("tool_use_id")
-                        if tool_use_id_ in lint_agent_ids:
-                            report_ = _agent_result_text(c.get("content"))
-                            prompt_ = lint_agent_ids[tool_use_id_]
-                            launched_ = re.search(r"agentId:\s*(\w+)", report_)
-                            if launched_:
-                                agent_prompts[launched_.group(1)] = prompt_
-                            if not (cwd_match or _mentions(prompt_, project) or _mentions(report_, project)):
-                                continue
-                            if LINT_AGENT_CLEAN_RE.search(report_) and not LINT_AGENT_ISSUES_RE.search(
-                                report_
-                            ):
-                                lint_ok = True
-                            continue
-                        cmd_ = tool_use_cmds.get(tool_use_id_)
-                        if not cmd_:
-                            continue
-                        if not (cwd_match or _mentions(cmd_, project)):
-                            continue
-                        if TEST_CMD_RE.search(cmd_):
-                            test_ok = True
-                        if allow_bashn_as_test and BASHN_RE.search(cmd_):
-                            test_ok = True
-                        if LINT_CMD_RE.search(cmd_):
-                            lint_ok = True
-    except OSError:
-        return False, False
-    return test_ok, lint_ok
-
-
+# PostToolUse does not expose a reliable command exit status, and Codex states
+# transcript_path is not a stable hook interface. Test markers therefore come
+# only from test-lint-mark.sh after test-lint-run.sh emits its success sentinel;
+# lint markers come from lint-agent-mark.sh or a successful wrapped lint command.
 def has_shell_scripts(root):
     # project_type_conventions.md's spec-collection rule scans "anywhere in
     # its tree", unqualified — no depth limit. A bare deploy-only install.sh
@@ -394,7 +179,7 @@ def has_shell_scripts(root):
 # Authoritative manifest set from project_type_conventions.md's
 # script-collection/spec-collection detection signals — one fixed
 # filename per language/build-system, each with a documented test/lint
-# gate command in TEST_CMD_RE/LINT_CMD_RE above and its own
+# gate command and its own
 # ~/.codex/memory/{lang}_conventions.md reference file (home/AGENTS.md's
 # Language Constraints section). dotnet's *.csproj/*.sln are not fixed
 # filenames, so they use the has_dotnet_manifest() glob check instead.
@@ -442,25 +227,20 @@ for target in targets:
         continue
 
     manifests_present = has_any_manifest(project)
-    transcript_test_ok, transcript_lint_ok = transcript_pass(
-        transcript_path, project, allow_bashn_as_test=not manifests_present
-    )
-
     missing = []
-    if not marked(os.path.join(marker_dir, "test"), project) and not transcript_test_ok:
+    if not marked(os.path.join(marker_dir, "test"), project):
         missing.append("test gate")
     # Every manifest language has a documented lint gate — go_lint/rust_lint/
     # script_lint agents for Go/Rust/shell, `npm run lint` for Node/TS
     # (node_typescript_conventions.md), `ruff check` + `ruff format --check`
-    # for Python (python_conventions.md), and the direct lint commands in
-    # LINT_CMD_RE above for every other manifest language — so any manifest
+    # for Python (python_conventions.md), and the documented direct lint
+    # commands for every other manifest language — so any manifest
     # or shell script in the tree means the lint gate is both defined and
     # satisfiable.
     has_defined_lint_target = manifests_present or has_shell_scripts(project)
     if (
         has_defined_lint_target
         and not marked(os.path.join(marker_dir, "lint"), project)
-        and not transcript_lint_ok
     ):
         missing.append("lint gate")
     if missing:
@@ -474,10 +254,9 @@ for b in blocked:
     msg_lines.append(f"  - {b}")
 msg_lines.append("")
 msg_lines.append(
-    "Run the project's test gate (make test / go test ./... / cargo test / pytest /\n"
-    "npm test / bash -n for script-collection) and lint gate (script_lint / go_lint /\n"
-    "rust_lint via the Agent tool — or `npm run lint` for Node/TS, `ruff check` +\n"
-    "`ruff format --check` for Python; never `make lint`) first, then retry gitcommit."
+    "Run test and direct lint commands through `bash \"$HOME/.codex/hooks/test-lint-run.sh\" {test|lint|both} -- <command>` "
+    "so the PostToolUse hook can verify the actual exit status.\n"
+    "Run script_lint/go_lint/rust_lint through the Agent tool; a clean SubagentStop result records its lint marker. Then retry gitcommit."
 )
 msg = "\n".join(msg_lines)
 print(msg)

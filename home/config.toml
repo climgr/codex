@@ -3,7 +3,7 @@ model = "gpt-6-luna"
 model_reasoning_effort = "medium"
 personality = "pragmatic"
 approval_policy = "never"
-sandbox_mode = "workspace-write"
+sandbox_mode = "danger-full-access"
 web_search = "live"
 
 [agents]

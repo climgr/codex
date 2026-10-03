@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609171200-git
+##@Version           :  202610020007-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,10 +9,10 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  test-lint-mark.sh
-# @@Description      :  PostToolUse Bash hook: records per session/project that a test-gate or lint-gate command exited 0, pairing with enforce-test-lint-gate.sh.
-# @@Changelog        :  20261001: Recognize Taplo TOML lint and sh/bash syntax checks as gate evidence; keep matchers synchronized with enforce-test-lint-gate.sh.
+# @@Description      :  PostToolUse Bash hook: records test/lint success only from the explicit test-lint-run.sh result marker.
+# @@Changelog        :  20261002: Extract runner output from string or structured tool_response while still requiring its success sentinel.
 # @@TODO             :  None
-# @@Other              :  Only marks when tool_response is an object and interrupted == false — a failed or timed-out run must never count as passing.
+# @@Other            :  Codex PostToolUse runs on failed commands and exposes no exit code; only test-lint-run.sh's PASS sentinel can satisfy this gate.
 # @@Resource         :  AGENTS.md - Commit Workflow (Test gate, Lint gate), home/hooks/spec-guard-mark.sh
 # @@Terminal App     :  no
 # @@sudo/root        :  no
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609302150-git"
+VERSION="202610020007-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -43,24 +43,36 @@ fi
 TEST_LINT_MARK_TOOL=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r 'try (.tool_name) catch "" // ""')
 [ "$TEST_LINT_MARK_TOOL" = "Bash" ] || exit 0
 
-# Bash's tool_response has no exit_code field at all (confirmed against live
-# transcript data and by triggering a real nonzero-exit command): on success
-# it's an object {stdout, stderr, interrupted, isImage, ...}; on a nonzero
-# exit it's a bare string like "Error: Exit code 7". A prior version of this
-# check read .tool_response.exit_code, which is always absent, so it always
-# fell through jq's `// 1` default and the gate below never once matched —
-# no marker was ever written, on any command, pass or fail. Object-vs-string
-# is the actual, reliable success signal.
-TEST_LINT_MARK_RESPONSE_TYPE=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r '(.tool_response | type) // "null"')
-[ "$TEST_LINT_MARK_RESPONSE_TYPE" = "object" ] || exit 0
-TEST_LINT_MARK_INTERRUPTED=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r 'try (.tool_response.interrupted) catch false // false')
-[ "$TEST_LINT_MARK_INTERRUPTED" = "false" ] || exit 0
-
 TEST_LINT_MARK_CMD=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r 'try (.tool_input.command) catch "" // ""')
 TEST_LINT_MARK_CWD=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r 'try (.cwd) catch "" // ""')
 TEST_LINT_MARK_SESSION_ID=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r 'try (.session_id) catch "" // ""')
+TEST_LINT_MARK_RESPONSE=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r '
+  def response_text:
+    if type == "string" then .
+    elif type == "array" then map(response_text) | join("\n")
+    elif type == "object" then
+      [(.text? // empty), (.stdout? // empty), (.output? // empty),
+       (.content? // empty), (.result? // empty)]
+      | map(response_text) | join("\n")
+    else "" end;
+  try (.tool_response | response_text) catch ""
+')
 [ -z "$TEST_LINT_MARK_CMD" ] && exit 0
 [ -z "$TEST_LINT_MARK_SESSION_ID" ] && exit 0
+
+# Codex PostToolUse fires for successful and failed commands and documents
+# tool_response as a generic JSON value. Extract text without interpreting the
+# structure as success, then require the runner's exact leading sentinel.
+TEST_LINT_MARK_RESULT=$(printf '%s\n' "$TEST_LINT_MARK_RESPONSE" | sed -n '1p')
+case "$TEST_LINT_MARK_RESULT" in
+  CODEX_TEST_LINT_GATE_V1:PASS:test) TEST_LINT_MARK_RESULT_KIND="test" ;;
+  CODEX_TEST_LINT_GATE_V1:PASS:lint) TEST_LINT_MARK_RESULT_KIND="lint" ;;
+  CODEX_TEST_LINT_GATE_V1:PASS:both) TEST_LINT_MARK_RESULT_KIND="both" ;;
+  *) exit 0 ;;
+esac
+printf '%s' "$TEST_LINT_MARK_CMD" \
+  | grep -qE -- "test-lint-run\\.sh\\\"?[[:space:]]+${TEST_LINT_MARK_RESULT_KIND}[[:space:]]+--" \
+  || exit 0
 
 TEST_LINT_MARK_IS_TEST=0
 TEST_LINT_MARK_IS_LINT=0
@@ -146,6 +158,17 @@ if [ "$TEST_LINT_MARK_IS_BASHN" = "1" ] && [ "$TEST_LINT_MARK_IS_TEST" != "1" ];
   if [ "$TEST_LINT_MARK_IS_SCRIPT_COLLECTION" = "1" ]; then
     TEST_LINT_MARK_IS_TEST=1
   fi
+fi
+[ "$TEST_LINT_MARK_IS_TEST" = "1" ] || [ "$TEST_LINT_MARK_IS_LINT" = "1" ] || exit 0
+if [ "$TEST_LINT_MARK_RESULT_KIND" = "test" ] && [ "$TEST_LINT_MARK_IS_TEST" != "1" ]; then
+  exit 0
+fi
+if [ "$TEST_LINT_MARK_RESULT_KIND" = "lint" ] && [ "$TEST_LINT_MARK_IS_LINT" != "1" ]; then
+  exit 0
+fi
+if [ "$TEST_LINT_MARK_RESULT_KIND" = "both" ] \
+  && { [ "$TEST_LINT_MARK_IS_TEST" != "1" ] || [ "$TEST_LINT_MARK_IS_LINT" != "1" ]; }; then
+  exit 0
 fi
 [ "$TEST_LINT_MARK_IS_TEST" = "1" ] || [ "$TEST_LINT_MARK_IS_LINT" = "1" ] || exit 0
 

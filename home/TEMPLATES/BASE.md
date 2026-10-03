@@ -107,7 +107,7 @@ security assumptions, and any exceptions.)
   gitignored. One markdown file per topic, YAML frontmatter (`name`, `description`,
   `type: project`), indexed by `.codex/memory/MEMORY.md`, read on demand. Same
   credential-masking rule as everywhere else. `~/.codex/**` (global) stays
-  read-only, deployed only via `climgr/config`'s `install.sh`; `.codex/memory/`
+  read-only, deployed only via `climgr/codex`'s `install.sh`; `.codex/memory/`
   here is read/write in this repo directly
 
 ## ⚠️ CRITICAL: Language is Determined by IDEA.md

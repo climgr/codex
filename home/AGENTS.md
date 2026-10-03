@@ -57,6 +57,10 @@ Define the relevant success check, then verify against actual output or
 behavior. Run the project's appropriate tests and linters when the task calls
 for them. Report the commands run and their results; do not claim a check that
 was not performed. Do not rerun flaky failures without a specific hypothesis.
+Run test and direct lint commands as
+`bash "$HOME/.codex/hooks/test-lint-run.sh" {test|lint|both} -- <command>` so
+the PostToolUse hook can verify their exit status. Clean script_lint, go_lint,
+and rust_lint Agent results are recorded by the SubagentStop hook.
 
 ## Build and execution
 

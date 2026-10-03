@@ -53,8 +53,8 @@ PRINTF_SET_CYAN='\033[0;36m'
 PRINTF_SET_WHITE='\033[1;37m'
 PRINTF_SET_RESET='\033[0m'
 INSTALL_SH_EXIT_STATUS=0
-CLIMGR_LOCAL_REPO="$HOME/.local/dotfiles/climgr/config"
-CLIMGR_CONFIG_REPO="https://github.com/climgr/config"
+CLIMGR_LOCAL_REPO="$HOME/.local/dotfiles/climgr/codex"
+CLIMGR_CONFIG_REPO="https://github.com/climgr/codex"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # Main application
 if ! __cmd_exists git; then

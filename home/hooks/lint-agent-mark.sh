@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609170001-git
+##@Version           :  202610020005-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,7 +10,7 @@
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  lint-agent-mark.sh
 # @@Description      :  SubagentStop hook: records the lint gate satisfied when script_lint/go_lint/rust_lint reports a clean result.
-# @@Changelog        :  realpath-normalise the recorded project path so it matches enforce-test-lint-gate.sh's realpath comparison under symlinked checkouts.
+# @@Changelog        :  20261002: Return valid JSON for SubagentStop and stop parsing the unstable transcript file format.
 # @@TODO             :  None
 # @@Other            :  Lint agents always end their report `: clean`, `: 0 new issue(s) found (M pre-existing...)`, or `: N new issue(s) found` — last_assistant_message is checked against that; a nonzero new-issue count skips the marker, pre-existing-only never does.
 # @@Resource         :  AGENTS.md - Commit Workflow (Lint gate), home/hooks/test-lint-mark.sh, home/hooks/enforce-test-lint-gate.sh
@@ -20,9 +20,13 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609170001-git"
+VERSION="202610020005-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
+
+# Codex requires valid JSON output from SubagentStop hooks, including no-op
+# cases; an empty successful response is not a valid event response.
+trap 'printf "{}\n"' EXIT
 
 if ! command -v jq >/dev/null 2>&1; then
   printf 'lint-agent-mark.sh: jq not found — lint agent mark disabled\n' >&2
@@ -63,13 +67,10 @@ printf '%s' "$LINT_AGENT_MARK_MSG" | grep -qE -- ': [1-9][0-9]* new issue\(s\) f
 
 # The lint agent is routinely pointed at a repo other than the session cwd
 # (e.g. a session run from a parent dir linting parent/{a,b,c}). Keying the
-# marker on cwd alone recorded the wrong project and the gate then reported
-# "lint gate has not run" for the repo that was actually linted. Collect every
-# distinct git toplevel the agent demonstrably worked on: the cwd's, plus each
-# existing absolute path named in the agent's own prompt (first entry of its
-# transcript) or in its final report. Symlink-normalised so each line matches
-# what enforce-test-lint-gate.sh compares against (os.path.realpath of the
-# gitcommit --dir target), exactly.
+# marker on cwd alone recorded the wrong project. Collect the cwd's Git root
+# and any existing absolute project paths named in Codex's last assistant
+# message. Symlink-normalise each path to match enforce-test-lint-gate.sh's
+# comparison with the gitcommit --dir target.
 LINT_AGENT_MARK_PROJECTS=()
 
 __lint_agent_mark_add() {
@@ -101,14 +102,8 @@ if [ -n "$LINT_AGENT_MARK_CWD" ]; then
   __lint_agent_mark_add "$LINT_AGENT_MARK_CWD"
 fi
 
-LINT_AGENT_MARK_AGENT_TRANSCRIPT=$(printf '%s' "$LINT_AGENT_MARK_INPUT" | jq -r 'try (.agent_transcript_path) catch "" // ""')
-if [ -n "$LINT_AGENT_MARK_AGENT_TRANSCRIPT" ] && [ -f "$LINT_AGENT_MARK_AGENT_TRANSCRIPT" ]; then
-  LINT_AGENT_MARK_PROMPT=$(head -n 3 -- "$LINT_AGENT_MARK_AGENT_TRANSCRIPT" 2>/dev/null \
-    | jq -r 'try (select(.type == "user") | .message.content | if type == "array" then map(.text? // "") | join(" ") else . end) catch ""' 2>/dev/null \
-    | head -c 20000) || LINT_AGENT_MARK_PROMPT=""
-  [ -n "$LINT_AGENT_MARK_PROMPT" ] && __lint_agent_mark_scan "$LINT_AGENT_MARK_PROMPT"
-fi
-
+# Codex documents last_assistant_message as the SubagentStop result. Use it
+# and cwd only; transcript file contents are not a stable hook interface.
 __lint_agent_mark_scan "$LINT_AGENT_MARK_MSG"
 
 [ "${#LINT_AGENT_MARK_PROJECTS[@]}" -eq 0 ] && exit 0

@@ -154,6 +154,7 @@
     ],
     "SubagentStop": [
       {
+        "matcher": "^(script_lint|go_lint|rust_lint)$",
         "hooks": [
           {
             "type": "command",
