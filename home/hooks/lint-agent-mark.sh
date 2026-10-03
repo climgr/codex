@@ -12,7 +12,7 @@
 # @@Description      :  SubagentStop hook: records the lint gate satisfied when script_lint/go_lint/rust_lint reports a clean result.
 # @@Changelog        :  20261002: Return valid JSON for SubagentStop and stop parsing the unstable transcript file format.
 # @@TODO             :  None
-# @@Other            :  Lint agents always end their report `: clean`, `: 0 new issue(s) found (M pre-existing...)`, or `: N new issue(s) found` — last_assistant_message is checked against that; a nonzero new-issue count skips the marker, pre-existing-only never does.
+# @@Other            :  Lint agents report clean, zero new issues, or no lintable files as success; a nonzero new-issue count skips the marker, pre-existing-only never does.
 # @@Resource         :  AGENTS.md - Commit Workflow (Lint gate), home/hooks/test-lint-mark.sh, home/hooks/enforce-test-lint-gate.sh
 # @@Terminal App     :  no
 # @@sudo/root        :  no
@@ -54,15 +54,16 @@ LINT_AGENT_MARK_SESSION_ID=$(printf '%s' "$LINT_AGENT_MARK_INPUT" | jq -r 'try (
 
 # script_lint/go_lint/rust_lint's own Output Format section ends every
 # report with `: clean` (nothing at all), `: 0 new issue(s) found`
-# (pre-existing findings only — non-blocking), or `: N new issue(s)
-# found` (N >= 1, blocking) — one line per file/package/crate. Only
+# (pre-existing findings only — non-blocking), or an explicit statement
+# that there is nothing to lint. A report with `: N new issue(s) found`
+# (N >= 1) is blocking — one line per file/package/crate. Only
 # issues on lines the current uncommitted changes actually touch are
 # NEW; pre-existing findings must still be logged to TODO.AI.md by the
 # calling session, but never block this gate on their own. A multi-file
 # run must have zero NEW anywhere, so any nonzero "N new issue(s)
 # found" line disqualifies the whole report.
 LINT_AGENT_MARK_MSG=$(printf '%s' "$LINT_AGENT_MARK_INPUT" | jq -r 'try (.last_assistant_message) catch "" // ""')
-printf '%s' "$LINT_AGENT_MARK_MSG" | grep -qE -- ': clean\b|: 0 new issue\(s\) found\b' || exit 0
+printf '%s' "$LINT_AGENT_MARK_MSG" | grep -qiE -- ': clean\b|: 0 new issue\(s\) found\b|\b(nothing to lint|no lintable files)\b' || exit 0
 printf '%s' "$LINT_AGENT_MARK_MSG" | grep -qE -- ': [1-9][0-9]* new issue\(s\) found\b' && exit 0
 
 # The lint agent is routinely pointed at a repo other than the session cwd
