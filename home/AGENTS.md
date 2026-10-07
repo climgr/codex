@@ -59,8 +59,13 @@ for them. Report the commands run and their results; do not claim a check that
 was not performed. Do not rerun flaky failures without a specific hypothesis.
 Run test and direct lint commands as
 `bash "$HOME/.codex/hooks/test-lint-run.sh" {test|lint|both} -- <command>` so
-the PostToolUse hook can verify their exit status. Clean script_lint, go_lint,
-and rust_lint Agent results are recorded by the SubagentStop hook.
+the PostToolUse hook can verify their exit status. Use direct linters in the
+primary session; lint-agent results do not satisfy the commit gate.
+
+The primary agent alone runs verification commands. Subagents must not run
+builds, tests, linters, formatters, type checks, benchmarks, or other project
+validation commands. They may inspect files and report which checks the
+primary agent should run after integrating their work.
 
 ## Build and execution
 
@@ -73,11 +78,20 @@ Language-specific rules are in `~/.codex/memory/{language}_conventions.md`.
 
 Use custom agents for clearly scoped specialist tasks and read-only agents for
 exploration. Give each subagent a bounded task and do not let it commit or
-push. See `~/.codex/memory/agent_usage_conventions.md`.
+push. Subagents may read, research, and edit only their explicitly assigned
+files. They must not run builds, tests, lint or formatting commands, type
+checks, benchmarks, or commit-gate commands; stage, commit, or push changes; or
+spawn further agents. Only the primary agent that received the user's request
+may run project validation and commit workflows, once after integrating the
+delegated work. If a check appears useful, subagents report it to the primary
+agent instead of running it. See
+`~/.codex/memory/agent_usage_conventions.md`.
 
 ## Commit workflow
 
-Use `gitcommit --dir {project_dir} all` as the only commit/push path. Never
+Only the primary agent handles commit preparation, gate execution, commits,
+and pushes. Subagents may not perform any part of that workflow. Use
+`gitcommit --dir {project_dir} all` as the only commit/push path. Never
 read the `gitcommit` executable itself. Before committing, follow
 `~/.codex/memory/gitcommit_conventions.md`, ensure the test and lint gates
 passed, and document every changed file in `.git/COMMIT_MESS`. After a push,

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610020006-git
+##@Version           :  202610070002-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,7 +10,7 @@
 # @@Created          :  Friday, October 2, 2026 00:01 EDT
 # @@File             :  test-lint-run.sh
 # @@Description      :  Runs a test or lint command and emits Codex PostToolUse-verifiable gate status.
-# @@Changelog        :  20261002: Require a recognized test/lint command before emitting gate status.
+# @@Changelog        :  20261007: Recognize direct primary-session lint and JSON validation commands.
 # @@TODO             :  None
 # @@Other            :  Usage: test-lint-run.sh {test|lint|both} -- command [args...]
 # @@Resource         :  home/hooks/test-lint-mark.sh, home/hooks/enforce-test-lint-gate.sh
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610020006-git"
+VERSION="202610070002-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 
@@ -54,13 +54,14 @@ CODEX_GATE_TEST=0
 CODEX_GATE_LINT=0
 case "${1-}:${2-}:${3-}" in
   make:test:* | make:check:* | go:test:* | cargo:test:* | pytest:* | npm:test:* | npm:run:test:* \
-    | gradle:test:* | ./gradlew:test:* | mvn:test:* | rspec:* \
+    | jq:empty:* | gradle:test:* | ./gradlew:test:* | mvn:test:* | rspec:* \
     | bundle:exec:rspec* | rake:test:* | phpunit:* | composer:test:* \
     | swift:test:* | flutter:test:* | dart:test:* | ctest:* | dotnet:test:* \
     | mix:test:* | bash:-n:* | sh:-n:*) CODEX_GATE_TEST=1 ;;
 esac
 case "${1-}:${2-}:${3-}" in
-  script-lint:*:* | go-lint:*:* | rust-lint:*:* | npm:run:lint:* | npx:eslint:* \
+  shellcheck:*:* | golangci-lint:run:* | go:vet:* | cargo:clippy:* \
+    | script-lint:*:* | go-lint:*:* | rust-lint:*:* | npm:run:lint:* | npx:eslint:* \
     | ruff:check:* | ruff:format:--check* | make:check:* | taplo:lint:* \
     | lintian:*:* | rpmlint:*:* | namcap:*:* | apkbuild-lint:*:* \
     | brew:audit:* | brew:style:* | snapcraft:lint:* | flatpak-builder-lint:*:* \

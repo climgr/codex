@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609170001-git
+##@Version           :  202610070001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,12 +10,12 @@
 # @@Created          :  Friday, May 16, 2026 00:00 EDT
 # @@File             :  drift-guard-read.sh
 # @@Description      :  PreToolUse Read+Bash hook: block reading ~/.codex/ deployed copies when a home/ source exists
-# @@Changelog        :  Decode the stdin payload file as UTF-8 with replacement and fail open on any parse exception (not only JSONDecodeError) — a non-UTF-8 byte previously raised UnicodeDecodeError and surfaced as a hook error.
+# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
 # @@TODO             :
 # @@Other            :  Fires only when inside a climgr/codex project (detected by presence of home/AGENTS.md); fails open if the home/ source doesn't exist; DRIFT_GUARD_ALLOW=1 <cmd> bypasses the block for that one Bash call
 # @@Resource         :  home/hooks/no-read-gitcommit.sh
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609170001-git"
+VERSION="202610070003-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 
 set -euo pipefail
@@ -37,6 +37,134 @@ import os
 import re
 import shlex
 import sys
+
+
+def split_shell_commands(text):
+    operators = ("&&", "||", "\n", ";", "|", "&")
+    parts, start, quote, escaped, comment, i = [], 0, None, False, False, 0
+    while i < len(text):
+        char = text[i]
+        if comment:
+            if char == "\n":
+                parts.append(text[start:i])
+                start, comment = i + 1, False
+            i += 1
+            continue
+        if escaped:
+            escaped = False
+            i += 1
+            continue
+        if quote:
+            if quote == '"' and char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            i += 1
+            continue
+        if char == "\\":
+            escaped = True
+            i += 1
+            continue
+        if char in ("'", '"'):
+            quote = char
+            i += 1
+            continue
+        if char == "#" and (i == 0 or text[i - 1].isspace() or text[i - 1] in ";&|"):
+            comment = True
+            i += 1
+            continue
+        operator = next((op for op in operators if text.startswith(op, i)), None)
+        if operator:
+            parts.append(text[start:i])
+            i += len(operator)
+            start = i
+            continue
+        i += 1
+    parts.append(text[start:])
+    return expand_shell_commands(parts)
+
+
+def expand_shell_commands(parts):
+    shells = {"bash", "sh", "zsh", "dash", "ksh", "mksh", "ash", "fish"}
+    expanded = []
+    pending = list(parts)
+    while pending:
+        part = pending.pop(0)
+        try:
+            tokens = shlex.split(part, comments=True)
+        except ValueError:
+            expanded.append(part)
+            continue
+        index = 0
+        while index < len(tokens):
+            name = os.path.basename(tokens[index].lstrip("\\"))
+            if name in shells:
+                break
+            if name in ("command", "builtin", "exec", "nohup", "time"):
+                if name == "command" and index + 1 < len(tokens) \
+                        and tokens[index + 1] in ("-v", "-V"):
+                    index = len(tokens)
+                    break
+                index += 1
+                if index < len(tokens) and tokens[index] == "--":
+                    index += 1
+                continue
+            if name == "env":
+                index += 1
+                while index < len(tokens):
+                    token = tokens[index]
+                    if token == "--":
+                        index += 1
+                        break
+                    if token in ("-u", "--unset", "-C", "--chdir"):
+                        index += 2
+                    elif token.startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", token):
+                        index += 1
+                    else:
+                        break
+                continue
+            if name in ("sudo", "doas"):
+                index += 1
+                value_options = {"-u", "--user", "-g", "--group", "-h", "--host",
+                                 "-p", "--prompt", "-C", "--close-from", "-r", "--role",
+                                 "-t", "--type"}
+                while index < len(tokens):
+                    token = tokens[index]
+                    if token in value_options:
+                        index += 2
+                    elif token.startswith("--") and "=" in token:
+                        index += 1
+                    elif token.startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", token):
+                        index += 1
+                    else:
+                        break
+                continue
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[index]):
+                index += 1
+                continue
+            index = len(tokens)
+            break
+        if index >= len(tokens) or os.path.basename(tokens[index].lstrip("\\")) not in shells:
+            expanded.append(part)
+            continue
+        script = None
+        for option_index, token in enumerate(tokens[index + 1:], index + 1):
+            if token in ("-c", "--command") and option_index + 1 < len(tokens):
+                script = tokens[option_index + 1]
+                break
+            if token.startswith("--command="):
+                script = token.split("=", 1)[1]
+                break
+            if token.startswith("-") and not token.startswith("--") and "c" in token[1:] \
+                    and option_index + 1 < len(tokens):
+                script = tokens[option_index + 1]
+                break
+        if script is None:
+            expanded.append(part)
+        else:
+            pending[0:0] = split_shell_commands(script)
+    return expanded
+
 
 with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as _f:
     raw = _f.read()
@@ -174,12 +302,12 @@ READ_VERBS = {"cat", "less", "more", "head", "tail", "vim", "vi", "nano",
               "view", "bat", "sed", "awk", "grep", "rg", "xxd", "od",
               "strings", "nl", "tac", "cut", "wc", "file", ".", "source"}
 
-for sub_cmd in re.split(r"[\n;]|&&|\|\||[|&]", cmd):
+for sub_cmd in split_shell_commands(cmd):
     sub_cmd = sub_cmd.strip()
     if not sub_cmd:
         continue
     try:
-        tokens = shlex.split(sub_cmd)
+        tokens = shlex.split(sub_cmd, comments=True)
     except ValueError:
         tokens = sub_cmd.split()
 

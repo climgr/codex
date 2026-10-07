@@ -1,6 +1,11 @@
 ---
 name: script-lint
-description: Lint bash/sh scripts in the current project for CasjaysDev convention violations. Invokes the script-lint agent on the project in the current working directory.
+description: Run ShellCheck on Bash/sh scripts in the current project from the primary session.
 ---
 
-Use the Codex custom agent `script_lint` to lint the target scripts.
+Run ShellCheck directly on the target scripts through the test/lint gate wrapper:
+
+`bash "$HOME/.codex/hooks/test-lint-run.sh" lint -- shellcheck <script paths>`
+
+The primary session owns lint execution; do not delegate lint commands to a
+subagent.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610020007-git
+##@Version           :  202610070001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,7 +10,7 @@
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  test-lint-mark.sh
 # @@Description      :  PostToolUse Bash hook: records test/lint success only from the explicit test-lint-run.sh result marker.
-# @@Changelog        :  20261002: Extract runner output from string or structured tool_response while still requiring its success sentinel.
+# @@Changelog        :  20261007: Accept direct primary-session shell, Go, and Rust lint results.
 # @@TODO             :  None
 # @@Other            :  Codex PostToolUse runs on failed commands and exposes no exit code; only test-lint-run.sh's PASS sentinel can satisfy this gate.
 # @@Resource         :  AGENTS.md - Commit Workflow (Test gate, Lint gate), home/hooks/spec-guard-mark.sh
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610020007-git"
+VERSION="202610070001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -77,7 +77,7 @@ printf '%s' "$TEST_LINT_MARK_CMD" \
 TEST_LINT_MARK_IS_TEST=0
 TEST_LINT_MARK_IS_LINT=0
 TEST_LINT_MARK_IS_BASHN=0
-TEST_LINT_MARK_TEST_RE='\bmake[[:space:]]+test\b|\bgo[[:space:]]+test\b'
+TEST_LINT_MARK_TEST_RE='\bmake[[:space:]]+test\b|\bgo[[:space:]]+test\b|\bjq[[:space:]]+empty\b'
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bcargo[[:space:]]+test\b|\bpytest\b"
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bnpm[[:space:]]+(run[[:space:]]+)?test\b"
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bmake[[:space:]]+check\b"
@@ -101,7 +101,7 @@ printf '%s' "$TEST_LINT_MARK_CMD" | grep -qE -- '\b(bash|sh)[[:space:]]+-n\b' \
 # separate bare-tool pattern to match), and the packaging-type per-format
 # linters (project_type_conventions.md's Format matrix). Must stay in sync
 # with enforce-test-lint-gate.sh's LINT_CMD_RE.
-TEST_LINT_MARK_LINT_RE='\bscript-lint\b|\bgo-lint\b|\brust-lint\b'
+TEST_LINT_MARK_LINT_RE='\bshellcheck\b|\bgolangci-lint[[:space:]]+run\b|\bgo[[:space:]]+vet\b|\bcargo[[:space:]]+clippy\b'
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bnpm[[:space:]]+run[[:space:]]+lint\b|\bnpx[[:space:]]+eslint\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bruff[[:space:]]+check\b|\bruff[[:space:]]+format[[:space:]]+--check\b"
 TEST_LINT_MARK_LINT_RE="${TEST_LINT_MARK_LINT_RE}|\bmake[[:space:]]+check\b"

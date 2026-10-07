@@ -44,6 +44,24 @@ agents, edits and reports back only; only the main session reviews the full
 diff, writes `COMMIT_MESS`, and runs `gitcommit`. Mechanically enforced by
 `no-subagent-commit.sh`; not a judgment call an agent can override.
 
+## Primary Agent Owns Verification
+
+The primary agent is the top-level session agent that received the user's
+request. It alone runs project builds, tests, lint and formatting commands,
+type checks, benchmarks, and commit gates. This applies to every child agent
+at every delegation depth, including specialist and builder agents.
+
+Subagents may read, research, and edit only their explicitly assigned files.
+They must not execute validation commands or any part of a commit workflow,
+including staging, commit preparation, commit, or push. If they identify a
+useful check, they report the suggested command to the primary agent, which
+runs each needed check once after integrating delegated work. Static analysis
+by reading the assigned source is allowed; executing a linter or formatter is
+not.
+
+Subagents also must not spawn or coordinate other agents. The primary agent
+owns delegation and coordinates all work across children.
+
 ## "No Edits" in a Prompt Is Not Enforcement
 
 A "research-only"/"no edits" instruction in a prompt is a request the agent

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609270001-git
+##@Version           :  202610070001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,7 +10,7 @@
 # @@Created          :  Sunday, Sep 27, 2026 EDT
 # @@File             :  enforce-doc-sync.sh
 # @@Description      :  PreToolUse Bash hook: blocks `gitcommit --dir <path> all` unless .git/COMMIT_MESS carries an explicit IDEA.md and README.md status line, for any repo where that file exists.
-# @@Changelog        :  Initial version.
+# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
 # @@TODO             :  None
 # @@Other            :  Forced-acknowledgment gate, not a content-diff heuristic: only checks that a status line is PRESENT, never that its claim is true (same trust model as enforce-commit-mess-coverage.sh's per-file bullets). Accepted forms: `- IDEA.md: updated (...)` or `- IDEA.md: N/A - no user-facing change` (same for README.md). DOC_SYNC_GATE_OVERRIDE=1 <gitcommit ...> bypasses for that one call - user-directed only, never Codex's own initiative.
 # @@Resource         :  AGENTS.md - Commit Workflow · home/memory/gitcommit_conventions.md · home/memory/project_conventions.md
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609270001-git"
+VERSION="202610070003-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -41,6 +41,134 @@ import os
 import re
 import shlex
 import sys
+
+
+def split_shell_commands(text):
+    operators = ("&&", "||", "\n", ";", "|", "&")
+    parts, start, quote, escaped, comment, i = [], 0, None, False, False, 0
+    while i < len(text):
+        char = text[i]
+        if comment:
+            if char == "\n":
+                parts.append(text[start:i])
+                start, comment = i + 1, False
+            i += 1
+            continue
+        if escaped:
+            escaped = False
+            i += 1
+            continue
+        if quote:
+            if quote == '"' and char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            i += 1
+            continue
+        if char == "\\":
+            escaped = True
+            i += 1
+            continue
+        if char in ("'", '"'):
+            quote = char
+            i += 1
+            continue
+        if char == "#" and (i == 0 or text[i - 1].isspace() or text[i - 1] in ";&|"):
+            comment = True
+            i += 1
+            continue
+        operator = next((op for op in operators if text.startswith(op, i)), None)
+        if operator:
+            parts.append(text[start:i])
+            i += len(operator)
+            start = i
+            continue
+        i += 1
+    parts.append(text[start:])
+    return expand_shell_commands(parts)
+
+
+def expand_shell_commands(parts):
+    shells = {"bash", "sh", "zsh", "dash", "ksh", "mksh", "ash", "fish"}
+    expanded = []
+    pending = list(parts)
+    while pending:
+        part = pending.pop(0)
+        try:
+            tokens = shlex.split(part, comments=True)
+        except ValueError:
+            expanded.append(part)
+            continue
+        index = 0
+        while index < len(tokens):
+            name = os.path.basename(tokens[index].lstrip("\\"))
+            if name in shells:
+                break
+            if name in ("command", "builtin", "exec", "nohup", "time"):
+                if name == "command" and index + 1 < len(tokens) \
+                        and tokens[index + 1] in ("-v", "-V"):
+                    index = len(tokens)
+                    break
+                index += 1
+                if index < len(tokens) and tokens[index] == "--":
+                    index += 1
+                continue
+            if name == "env":
+                index += 1
+                while index < len(tokens):
+                    token = tokens[index]
+                    if token == "--":
+                        index += 1
+                        break
+                    if token in ("-u", "--unset", "-C", "--chdir"):
+                        index += 2
+                    elif token.startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", token):
+                        index += 1
+                    else:
+                        break
+                continue
+            if name in ("sudo", "doas"):
+                index += 1
+                value_options = {"-u", "--user", "-g", "--group", "-h", "--host",
+                                 "-p", "--prompt", "-C", "--close-from", "-r", "--role",
+                                 "-t", "--type"}
+                while index < len(tokens):
+                    token = tokens[index]
+                    if token in value_options:
+                        index += 2
+                    elif token.startswith("--") and "=" in token:
+                        index += 1
+                    elif token.startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", token):
+                        index += 1
+                    else:
+                        break
+                continue
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[index]):
+                index += 1
+                continue
+            index = len(tokens)
+            break
+        if index >= len(tokens) or os.path.basename(tokens[index].lstrip("\\")) not in shells:
+            expanded.append(part)
+            continue
+        script = None
+        for option_index, token in enumerate(tokens[index + 1:], index + 1):
+            if token in ("-c", "--command") and option_index + 1 < len(tokens):
+                script = tokens[option_index + 1]
+                break
+            if token.startswith("--command="):
+                script = token.split("=", 1)[1]
+                break
+            if token.startswith("-") and not token.startswith("--") and "c" in token[1:] \
+                    and option_index + 1 < len(tokens):
+                script = tokens[option_index + 1]
+                break
+        if script is None:
+            expanded.append(part)
+        else:
+            pending[0:0] = split_shell_commands(script)
+    return expanded
+
 
 with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as _f:
     raw = _f.read()
@@ -71,12 +199,12 @@ if not cmd or not re.search(r"\bgitcommit\b", cmd):
 def find_gitcommit_dir(text):
     # Only the valid `gitcommit --dir <path> all` shape carries a --dir path -
     # malformed shapes are already blocked by enforce-gitcommit-shape.sh.
-    for sub_cmd in re.split(r"[\n;]|&&|\|\||[|&]", text):
+    for sub_cmd in split_shell_commands(text):
         sub_cmd = sub_cmd.strip()
         if not sub_cmd:
             continue
         try:
-            tokens = shlex.split(sub_cmd)
+            tokens = shlex.split(sub_cmd, comments=True)
         except ValueError:
             tokens = sub_cmd.split()
 

@@ -1,4 +1,5 @@
 # User-level Codex defaults. Hooks and custom agents live beside this file.
+cli_auth_credentials_store = "file"
 model = "gpt-6-luna"
 model_reasoning_effort = "medium"
 personality = "pragmatic"

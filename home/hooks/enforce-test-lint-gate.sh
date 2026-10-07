@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610020003-git
+##@Version           :  202610070001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,10 +9,10 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  enforce-test-lint-gate.sh
-# @@Description      :  PreToolUse Bash hook: requires explicit Codex gate-result markers before the commit wrapper runs.
-# @@Changelog        :  20261002: Remove unsupported transcript success inference; require exit-status sentinels from test-lint-run.sh.
+# @@Description      :  PreToolUse Bash hook: requires primary-session test/lint gate markers before the commit wrapper runs.
+# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
 # @@TODO             :  None
-# @@Other            :  Pairs with test-lint-mark.sh and lint-agent-mark.sh. TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> bypasses the gate for that one call — user-directed only, never Codex's own initiative.
+# @@Other            :  Pairs with test-lint-mark.sh. TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> bypasses the gate for that one call — user-directed only, never Codex's own initiative.
 # @@Resource         :  AGENTS.md - Commit Workflow, home/hooks/test-lint-mark.sh, home/hooks/spec-guard.sh
 # @@Terminal App     :  no
 # @@sudo/root        :  no
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610020003-git"
+VERSION="202610070003-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -42,6 +42,134 @@ import os
 import re
 import shlex
 import sys
+
+
+def split_shell_commands(text):
+    operators = ("&&", "||", "\n", ";", "|", "&")
+    parts, start, quote, escaped, comment, i = [], 0, None, False, False, 0
+    while i < len(text):
+        char = text[i]
+        if comment:
+            if char == "\n":
+                parts.append(text[start:i])
+                start, comment = i + 1, False
+            i += 1
+            continue
+        if escaped:
+            escaped = False
+            i += 1
+            continue
+        if quote:
+            if quote == '"' and char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            i += 1
+            continue
+        if char == "\\":
+            escaped = True
+            i += 1
+            continue
+        if char in ("'", '"'):
+            quote = char
+            i += 1
+            continue
+        if char == "#" and (i == 0 or text[i - 1].isspace() or text[i - 1] in ";&|"):
+            comment = True
+            i += 1
+            continue
+        operator = next((op for op in operators if text.startswith(op, i)), None)
+        if operator:
+            parts.append(text[start:i])
+            i += len(operator)
+            start = i
+            continue
+        i += 1
+    parts.append(text[start:])
+    return expand_shell_commands(parts)
+
+
+def expand_shell_commands(parts):
+    shells = {"bash", "sh", "zsh", "dash", "ksh", "mksh", "ash", "fish"}
+    expanded = []
+    pending = list(parts)
+    while pending:
+        part = pending.pop(0)
+        try:
+            tokens = shlex.split(part, comments=True)
+        except ValueError:
+            expanded.append(part)
+            continue
+        index = 0
+        while index < len(tokens):
+            name = os.path.basename(tokens[index].lstrip("\\"))
+            if name in shells:
+                break
+            if name in ("command", "builtin", "exec", "nohup", "time"):
+                if name == "command" and index + 1 < len(tokens) \
+                        and tokens[index + 1] in ("-v", "-V"):
+                    index = len(tokens)
+                    break
+                index += 1
+                if index < len(tokens) and tokens[index] == "--":
+                    index += 1
+                continue
+            if name == "env":
+                index += 1
+                while index < len(tokens):
+                    token = tokens[index]
+                    if token == "--":
+                        index += 1
+                        break
+                    if token in ("-u", "--unset", "-C", "--chdir"):
+                        index += 2
+                    elif token.startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", token):
+                        index += 1
+                    else:
+                        break
+                continue
+            if name in ("sudo", "doas"):
+                index += 1
+                value_options = {"-u", "--user", "-g", "--group", "-h", "--host",
+                                 "-p", "--prompt", "-C", "--close-from", "-r", "--role",
+                                 "-t", "--type"}
+                while index < len(tokens):
+                    token = tokens[index]
+                    if token in value_options:
+                        index += 2
+                    elif token.startswith("--") and "=" in token:
+                        index += 1
+                    elif token.startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", token):
+                        index += 1
+                    else:
+                        break
+                continue
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[index]):
+                index += 1
+                continue
+            index = len(tokens)
+            break
+        if index >= len(tokens) or os.path.basename(tokens[index].lstrip("\\")) not in shells:
+            expanded.append(part)
+            continue
+        script = None
+        for option_index, token in enumerate(tokens[index + 1:], index + 1):
+            if token in ("-c", "--command") and option_index + 1 < len(tokens):
+                script = tokens[option_index + 1]
+                break
+            if token.startswith("--command="):
+                script = token.split("=", 1)[1]
+                break
+            if token.startswith("-") and not token.startswith("--") and "c" in token[1:] \
+                    and option_index + 1 < len(tokens):
+                script = tokens[option_index + 1]
+                break
+        if script is None:
+            expanded.append(part)
+        else:
+            pending[0:0] = split_shell_commands(script)
+    return expanded
+
 
 with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as _f:
     raw = _f.read()
@@ -87,12 +215,12 @@ if not cmd or not session_id or not re.search(r"\bgitcommit\b", cmd):
 def find_gitcommit_dir(text):
     # Only the valid `gitcommit --dir <path> all` shape carries a --dir path -
     # malformed shapes are already blocked by enforce-gitcommit-shape.sh.
-    for sub_cmd in re.split(r"[\n;]|&&|\|\||[|&]", text):
+    for sub_cmd in split_shell_commands(text):
         sub_cmd = sub_cmd.strip()
         if not sub_cmd:
             continue
         try:
-            tokens = shlex.split(sub_cmd)
+            tokens = shlex.split(sub_cmd, comments=True)
         except ValueError:
             tokens = sub_cmd.split()
 
@@ -132,8 +260,8 @@ if any(override for _target, override in targets):
 
 targets = [target for target, _override in targets]
 
-# Must match the deterministic path test-lint-mark.sh/lint-agent-mark.sh
-# write (see those files' comments for why this deviates from
+# Must match the deterministic path test-lint-mark.sh writes (see its
+# comments for why this deviates from
 # tempdir_conventions.md's -XXXXXX mktemp-suffix pattern: session_id is
 # the lookup key here, so it takes the uniqueness role -XXXXXX would).
 #
@@ -158,7 +286,7 @@ def marked(marker_file, project):
 # PostToolUse does not expose a reliable command exit status, and Codex states
 # transcript_path is not a stable hook interface. Test markers therefore come
 # only from test-lint-mark.sh after test-lint-run.sh emits its success sentinel;
-# lint markers come from lint-agent-mark.sh or a successful wrapped lint command.
+# Lint markers come from successful primary-session commands through the runner.
 def has_shell_scripts(root):
     # project_type_conventions.md's spec-collection rule scans "anywhere in
     # its tree", unqualified — no depth limit. A bare deploy-only install.sh
@@ -230,8 +358,9 @@ for target in targets:
     missing = []
     if not marked(os.path.join(marker_dir, "test"), project):
         missing.append("test gate")
-    # Every manifest language has a documented lint gate — go_lint/rust_lint/
-    # script_lint agents for Go/Rust/shell, `npm run lint` for Node/TS
+    # Every manifest language has a documented lint gate — direct primary-
+    # session commands such as shellcheck, go vet/golangci-lint, cargo clippy,
+    # `npm run lint` for Node/TS
     # (node_typescript_conventions.md), `ruff check` + `ruff format --check`
     # for Python (python_conventions.md), and the documented direct lint
     # commands for every other manifest language — so any manifest
@@ -256,7 +385,7 @@ msg_lines.append("")
 msg_lines.append(
     "Run test and direct lint commands through `bash \"$HOME/.codex/hooks/test-lint-run.sh\" {test|lint|both} -- <command>` "
     "so the PostToolUse hook can verify the actual exit status.\n"
-    "Run script_lint/go_lint/rust_lint through the Agent tool; a clean SubagentStop result records its lint marker. Then retry gitcommit."
+    "Run the project's direct lint command in the primary session through `bash \"$HOME/.codex/hooks/test-lint-run.sh\" lint -- <command>`, then retry the commit."
 )
 msg = "\n".join(msg_lines)
 print(msg)

@@ -1,6 +1,11 @@
 ---
 name: rust-lint
-description: Lint the current Rust project for CasjaysDev convention violations. Invokes the rust-lint agent on the project in the current working directory.
+description: Run Clippy in the primary session for the requested Rust project.
 ---
 
-Use the Codex custom agent `rust_lint` to lint the Rust project at the requested path.
+Run Clippy directly through the test/lint gate wrapper:
+
+`bash "$HOME/.codex/hooks/test-lint-run.sh" lint -- cargo clippy --all-targets --all-features -- -D warnings`
+
+The primary session owns lint execution; do not delegate lint commands to a
+subagent.

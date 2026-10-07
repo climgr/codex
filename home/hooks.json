@@ -151,18 +151,6 @@
           }
         ]
       }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "^(script_lint|go_lint|rust_lint)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/lint-agent-mark.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   }
 }
