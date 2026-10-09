@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610070001-git
+##@Version           :  202610090001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,7 +10,7 @@
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  enforce-test-lint-gate.sh
 # @@Description      :  PreToolUse Bash hook: requires primary-session test/lint gate markers before the commit wrapper runs.
-# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
+# @@Changelog        :  20261009: Rely on wrapper completion markers for commands polled by session ID.
 # @@TODO             :  None
 # @@Other            :  Pairs with test-lint-mark.sh. TEST_LINT_GATE_OVERRIDE=1 <gitcommit ...> bypasses the gate for that one call — user-directed only, never Codex's own initiative.
 # @@Resource         :  AGENTS.md - Commit Workflow, home/hooks/test-lint-mark.sh, home/hooks/spec-guard.sh
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610070003-git"
+VERSION="202610090001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -283,10 +283,9 @@ def marked(marker_file, project):
         return False
 
 
-# PostToolUse does not expose a reliable command exit status, and Codex states
-# transcript_path is not a stable hook interface. Test markers therefore come
-# only from test-lint-mark.sh after test-lint-run.sh emits its success sentinel;
-# Lint markers come from successful primary-session commands through the runner.
+# PostToolUse can see only the command result returned for its tool call. The
+# runner records success after its child exits so commands returned as session
+# IDs can still satisfy the gate; the sentinel path remains a fast-result fallback.
 def has_shell_scripts(root):
     # project_type_conventions.md's spec-collection rule scans "anywhere in
     # its tree", unqualified — no depth limit. A bare deploy-only install.sh
@@ -384,7 +383,7 @@ for b in blocked:
 msg_lines.append("")
 msg_lines.append(
     "Run test and direct lint commands through `bash \"$HOME/.codex/hooks/test-lint-run.sh\" {test|lint|both} -- <command>` "
-    "so the PostToolUse hook can verify the actual exit status.\n"
+    "so the wrapper can record the actual child exit status for this session.\n"
     "Run the project's direct lint command in the primary session through `bash \"$HOME/.codex/hooks/test-lint-run.sh\" lint -- <command>`, then retry the commit."
 )
 msg = "\n".join(msg_lines)

@@ -59,8 +59,10 @@ for them. Report the commands run and their results; do not claim a check that
 was not performed. Do not rerun flaky failures without a specific hypothesis.
 Run test and direct lint commands as
 `bash "$HOME/.codex/hooks/test-lint-run.sh" {test|lint|both} -- <command>` so
-the PostToolUse hook can verify their exit status. Use direct linters in the
-primary session; lint-agent results do not satisfy the commit gate.
+the wrapper can record the child command's actual exit status for this session.
+The PostToolUse result marker remains a fallback for commands returned directly.
+Use direct linters in the primary session; lint-agent results do not satisfy
+the commit gate.
 
 The primary agent alone runs verification commands. Subagents must not run
 builds, tests, linters, formatters, type checks, benchmarks, or other project

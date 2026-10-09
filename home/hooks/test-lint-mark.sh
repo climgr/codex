@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610070001-git
+##@Version           :  202610090001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,10 +9,10 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  test-lint-mark.sh
-# @@Description      :  PostToolUse Bash hook: records test/lint success only from the explicit test-lint-run.sh result marker.
-# @@Changelog        :  20261007: Accept direct primary-session shell, Go, and Rust lint results.
+# @@Description      :  Records completed test/lint results from the runner and its PostToolUse fallback.
+# @@Changelog        :  20261009: Let the runner record completion after the child command exits.
 # @@TODO             :  None
-# @@Other            :  Codex PostToolUse runs on failed commands and exposes no exit code; only test-lint-run.sh's PASS sentinel can satisfy this gate.
+# @@Other            :  The runner invokes this after observing the child exit status; PostToolUse also accepts its PASS sentinel when returned directly.
 # @@Resource         :  AGENTS.md - Commit Workflow (Test gate, Lint gate), home/hooks/spec-guard-mark.sh
 # @@Terminal App     :  no
 # @@sudo/root        :  no
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610070001-git"
+VERSION="202610090001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -60,9 +60,9 @@ TEST_LINT_MARK_RESPONSE=$(printf '%s' "$TEST_LINT_MARK_INPUT" | jq -r '
 [ -z "$TEST_LINT_MARK_CMD" ] && exit 0
 [ -z "$TEST_LINT_MARK_SESSION_ID" ] && exit 0
 
-# Codex PostToolUse fires for successful and failed commands and documents
-# tool_response as a generic JSON value. Extract text without interpreting the
-# structure as success, then require the runner's exact leading sentinel.
+# The runner calls this after the child command exits successfully. The same
+# exact sentinel is also accepted from PostToolUse when the completed command
+# result is returned directly. Never infer success from generic tool output.
 TEST_LINT_MARK_RESULT=$(printf '%s\n' "$TEST_LINT_MARK_RESPONSE" | sed -n '1p')
 case "$TEST_LINT_MARK_RESULT" in
   CODEX_TEST_LINT_GATE_V1:PASS:test) TEST_LINT_MARK_RESULT_KIND="test" ;;
