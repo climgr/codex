@@ -21,6 +21,15 @@ Never run anything directly on the host unless no lower option works. Always use
 
 ## Cleanup rules
 
+- **Host-wide VM cap:** Across all Codex sessions and agents on this host, no
+  more than **4 AI-created VMs may be running or starting at once**. A normal
+  test topology might use 1–2 server VMs and 2–3 client VMs, or up to 4 server
+  VMs. The primary agent coordinates VM creation; subagents must reuse a
+  suitable existing VM and must not each provision one for themselves. Check
+  host capacity before each launch. If broader coverage needs more test
+  instances, reuse the existing VMs or tear them down and rebuild them in
+  sequential batches; broad or exhaustive test requests never justify
+  exceeding the four-VM cap.
 - **Stop and remove immediately** — every container, VM, volume, network, and temp file must be torn down as soon as it is no longer needed. Never leave them running until session end.
 - **Track what you start** — note the name/ID of every container or VM before starting it; guarantee it appears in the cleanup step of the same task.
 - Only remove resources created by the current project — never `docker system prune` or broad sweeps.

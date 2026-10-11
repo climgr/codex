@@ -76,6 +76,11 @@ where the project requires them. Keep commands bounded, clean up only
 resources created for the task, and never perform broad host cleanup.
 Language-specific rules are in `~/.codex/memory/{language}_conventions.md`.
 
+VM provisioning is coordinated by the primary agent. Never let each subagent
+create its own VM by default. Keep the total of AI-created VMs running or
+starting on the host to **at most 4**; provision sequentially when necessary,
+and reuse an existing suitable VM. Stop and report before exceeding this cap.
+
 ## Subagents
 
 Use custom agents for clearly scoped specialist tasks and read-only agents for
