@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610090001-git
+##@Version           :  202610110001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,6 +10,7 @@
 # @@Created          :  Friday, October 2, 2026 00:01 EDT
 # @@File             :  test-lint-run.sh
 # @@Description      :  Runs a test or lint command, records its completed status, and emits a gate result sentinel.
+# @@Changelog        :  20261011: Explain gate type mismatches and unrecognized commands.
 # @@Changelog        :  20261009: Record gate success before returning, including commands polled by session ID.
 # @@TODO             :  None
 # @@Other            :  Usage: test-lint-run.sh {test|lint|both} -- command [args...]
@@ -18,32 +19,39 @@
 # @@sudo/root        :  no
 # @@Template         :  shell/bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
+# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610090001-git"
+VERSION="202610110001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 
 if [ "$#" -lt 3 ]; then
-  printf 'Usage: %s {test|lint|both} -- command [args...]\n' "${0##*/}" >&2
+  printf 'Gate setup mismatch: choose test, lint, or both, then provide a command after --.\n' >&2
+  printf '  Usage: %s {test|lint|both} -- command [args...]\n' "${0##*/}" >&2
+  printf '  No command was run and no gate was recorded.\n' >&2
   exit 2
 fi
 
 CODEX_GATE_KIND="$1"
 shift
 if [ "$1" != "--" ]; then
-  printf 'Usage: %s {test|lint|both} -- command [args...]\n' "${0##*/}" >&2
+  printf 'Gate setup mismatch: expected -- before the command.\n' >&2
+  printf '  Usage: %s {test|lint|both} -- command [args...]\n' "${0##*/}" >&2
+  printf '  No command was run and no gate was recorded.\n' >&2
   exit 2
 fi
 shift
 if [ "$#" -eq 0 ]; then
-  printf 'A gate command is required\n' >&2
+  printf 'Gate setup mismatch: no command was provided after --.\n' >&2
+  printf '  Usage: %s {test|lint|both} -- command [args...]\n' "${0##*/}" >&2
+  printf '  No command was run and no gate was recorded.\n' >&2
   exit 2
 fi
 case "$CODEX_GATE_KIND" in
   test | lint | both) ;;
   *)
-    printf 'Unknown gate kind: %s\n' "$CODEX_GATE_KIND" >&2
+    printf 'Gate setup mismatch: unknown gate type %q; choose test, lint, or both.\n' "$CODEX_GATE_KIND" >&2
+    printf '  No command was run and no gate was recorded.\n' >&2
     exit 2
     ;;
 esac
@@ -73,16 +81,43 @@ case "${1-}:${2-}:${3-}" in
     | clang-tidy:*:* | cppcheck:*:* | dotnet:format:--verify-no-changes* \
     | mix:credo:* | mix:format:--check-formatted*) CODEX_GATE_LINT=1 ;;
 esac
+
+# Preserve a shell-safe display of the request so every rejection explains
+# which gate command was checked without executing it.
+CODEX_GATE_COMMAND_DISPLAY="$(printf '%q ' "$@")"
+CODEX_GATE_COMMAND_DISPLAY="${CODEX_GATE_COMMAND_DISPLAY% }"
 if [ "$CODEX_GATE_KIND" = "test" ] && [ "$CODEX_GATE_TEST" != "1" ]; then
-  printf 'Not a recognized test command: %s\n' "$1" >&2
+  if [ "$CODEX_GATE_LINT" = "1" ]; then
+    printf 'Gate type mismatch: this command is recognized as lint, but the requested gate is test.\n' >&2
+    printf '  Command: %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+    printf '  Correct invocation: bash "$HOME/.codex/hooks/test-lint-run.sh" lint -- %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+  else
+    printf 'Gate command not accepted for the test gate; no command was run and no gate was recorded.\n' >&2
+    printf '  Command: %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+    printf '  Use a recognized test command such as make test, pytest, or bash -n <script>.\n' >&2
+  fi
   exit 2
 fi
 if [ "$CODEX_GATE_KIND" = "lint" ] && [ "$CODEX_GATE_LINT" != "1" ]; then
-  printf 'Not a recognized lint command: %s\n' "$1" >&2
+  if [ "$CODEX_GATE_TEST" = "1" ]; then
+    printf 'Gate type mismatch: this command is recognized as a test or syntax check, but the requested gate is lint.\n' >&2
+    printf '  Command: %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+    printf '  Correct invocation: bash "$HOME/.codex/hooks/test-lint-run.sh" test -- %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+  else
+    printf 'Gate command not accepted for the lint gate; no command was run and no gate was recorded.\n' >&2
+    printf '  Command: %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+    printf '  Use a recognized linter such as shellcheck <script>, cargo clippy, or taplo lint.\n' >&2
+  fi
   exit 2
 fi
 if [ "$CODEX_GATE_KIND" = "both" ] && { [ "$CODEX_GATE_TEST" != "1" ] || [ "$CODEX_GATE_LINT" != "1" ]; }; then
-  printf 'A recognized combined test and lint command is required\n' >&2
+  printf 'Gate command not accepted for the combined test and lint gate; no command was run and no gate was recorded.\n' >&2
+  printf '  Command: %s\n' "$CODEX_GATE_COMMAND_DISPLAY" >&2
+  if [ "$CODEX_GATE_TEST" = "1" ] || [ "$CODEX_GATE_LINT" = "1" ]; then
+    printf '  This command matches only one gate. Run it under that gate, then run a separate command for the other gate.\n' >&2
+  else
+    printf '  Use a supported combined command, or run separate test and lint invocations.\n' >&2
+  fi
   exit 2
 fi
 
