@@ -142,6 +142,16 @@
         ]
       },
       {
+        "matcher": "(?i)(^read$|(^|__)read(_|$)|^read(_|$)|readfile)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.codex/codex-read-mark.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "^apply_patch$",
         "hooks": [
           {

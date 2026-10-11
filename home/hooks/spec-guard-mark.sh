@@ -15,6 +15,7 @@
 # @@Other              :  Pairs with spec-guard.sh (checks this marker) and enforce-test-lint-gate.sh (reuses it for the spec-collection branch).
 # @@Resource         :  ~/.codex/memory/project_conventions.md
 # - - - - - - - - - - - - - - - - - - - - - - - - -
+# shellcheck disable=SC2034
 VERSION="202609170001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -55,7 +56,7 @@ SPEC_GUARD_MARK_PROJECT=$(realpath -- "$SPEC_GUARD_MARK_PROJECT" 2>/dev/null) ||
 # (e.g. climgr/{go,rust,android,docker,mgr} - the spec is a root-level *.md
 # template file like APPLICATION.md/COMPOSEMGR.md/SCRIPT.md, never named
 # AI.md/SPEC.md) marks on any such root-level *.md read instead, excluding the
-# well-known non-spec meta filenames.
+# well-known non-spec meta/instruction filenames (including CLAUDE.md).
 case "$SPEC_GUARD_MARK_BASENAME" in
   AI.md | SPEC.md) ;;
   README.md)
@@ -75,12 +76,12 @@ case "$SPEC_GUARD_MARK_BASENAME" in
     for SPEC_GUARD_MARK_CANDIDATE in "$SPEC_GUARD_MARK_PROJECT"/*.md; do
       [ -e "$SPEC_GUARD_MARK_CANDIDATE" ] || continue
       case "${SPEC_GUARD_MARK_CANDIDATE##*/}" in
-        README.md | LICENSE.md | AGENTS.md | IDEA.md | TODO.AI.md | TODO.md | PLAN.AI.md | PLAN.md) ;;
+        README.md | LICENSE.md | AGENTS.md | CLAUDE.md | IDEA.md | TODO.AI.md | TODO.md | PLAN.AI.md | PLAN.md) ;;
         *) exit 0 ;;
       esac
     done
     ;;
-  LICENSE.md | AGENTS.md | IDEA.md | TODO.AI.md | TODO.md | PLAN.AI.md | PLAN.md)
+  LICENSE.md | AGENTS.md | CLAUDE.md | IDEA.md | TODO.AI.md | TODO.md | PLAN.AI.md | PLAN.md)
     exit 0
     ;;
   *.md)

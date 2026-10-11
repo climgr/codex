@@ -15,6 +15,7 @@
 # @@Other            :  Compaction drops old context; this re-anchors Codex to the project without a full re-read, which previously re-triggered compaction in a loop.
 # @@Resource         :
 # - - - - - - - - - - - - - - - - - - - - - - - - -
+# shellcheck disable=SC2034
 VERSION="202609170001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -37,17 +38,17 @@ if command -v jq >/dev/null 2>&1 && printf '%s' "$POST_COMPACT_INPUT" | jq -e 't
 fi
 
 POST_COMPACT_PROJECT=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null) || exit 0
-[ -f "$POST_COMPACT_PROJECT/AGENTS.md" ] || [ -f "$POST_COMPACT_PROJECT/AI.md" ] || exit 0
+[ -f "$POST_COMPACT_PROJECT/AGENTS.md" ] || [ -f "$POST_COMPACT_PROJECT/CLAUDE.md" ] || [ -f "$POST_COMPACT_PROJECT/AI.md" ] || [ -f "$POST_COMPACT_PROJECT/SPEC.md" ] || [ -f "$POST_COMPACT_PROJECT/IDEA.md" ] || exit 0
 
 POST_COMPACT_MSG="POST-COMPACT CONTEXT
 project_dir: ${POST_COMPACT_PROJECT}
 Context was compacted. The summary above is your state — resume from its task goal and next actions.
 Do NOT bulk re-read files now; that refills context immediately and can trigger another compaction.
-1. Project AGENTS.md/AI.md/SPEC.md still override the global AGENTS.md, but consult them on demand —
+1. Consult existing project instruction/spec files (AGENTS.md, CLAUDE.md, AI.md, SPEC.md, IDEA.md) on demand; none are required by this hook —
    read only the specific section your next action needs, not the whole file
 2. Before editing a file, re-read only that file (or the relevant section) — don't proactively re-read files you are not about to touch
 3. All writes must stay within ${POST_COMPACT_PROJECT} unless the user explicitly names an external path
-4. spec-guard.sh will block Edit/Write until AI.md/SPEC.md is Read again this session — it fires on its own when you attempt an edit; no need to pre-emptively satisfy it"
+4. spec-guard.sh gates edits only when this project has AI.md or SPEC.md; when gated, read an applicable spec again after compaction"
 
 python3 -c "
 import json, sys

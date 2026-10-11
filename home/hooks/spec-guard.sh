@@ -12,9 +12,10 @@
 # @@Description      :  PreToolUse hook: block Edit/Write on project files until AI.md/SPEC.md was read this session
 # @@Changelog        :  Wrapped two long BLOCKED message strings onto multiple lines to fix line-length violations.
 # @@TODO             :
-# @@Other            :  Gates repos with AI.md/SPEC.md; bare AGENTS.md is a blocked broken bootstrap; exempt: meta/spec, README/LICENSE, COMMIT_MESS, env, .no_push.
+# @@Other            :  Gates only repos with AI.md/SPEC.md; project instruction files are optional; exempt: meta/spec, README/LICENSE, COMMIT_MESS, env, .no_push.
 # @@Resource         :  ~/.codex/memory/project_conventions.md
 # - - - - - - - - - - - - - - - - - - - - - - - - -
+# shellcheck disable=SC2034
 VERSION="202609031612-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -40,13 +41,13 @@ SPEC_GUARD_SESSION_ID=$(printf '%s' "$SPEC_GUARD_INPUT" | jq -r '.session_id // 
 [ -z "$SPEC_GUARD_FILE_PATH" ] && exit 0
 [ -z "$SPEC_GUARD_SESSION_ID" ] && exit 0
 
-# Exempt meta/spec files — these are pre-approved to edit without having read AI.md first
-# (editing AI.md itself, or IDEA.md/SPEC.md/TODO/PLAN, is not "implementing against the spec")
+# Exempt meta/spec and instruction files — these are pre-approved to edit without
+# having read AI.md first (editing the governing documents is not implementation).
 case "$SPEC_GUARD_FILE_PATH" in
   */.git/* | */.codex/*) exit 0 ;;
 esac
 case "${SPEC_GUARD_FILE_PATH##*/}" in
-  AI.md | IDEA.md | SPEC.md | AGENTS.md | TODO.AI.md | TODO.md | PLAN.AI.md | PLAN.md \
+  AI.md | IDEA.md | SPEC.md | AGENTS.md | CLAUDE.md | TODO.AI.md | TODO.md | PLAN.AI.md | PLAN.md \
     | COMMIT_MESS | .env | app.env | default.env | .no_push | README.md | LICENSE.md)
     exit 0
     ;;
@@ -54,34 +55,20 @@ esac
 
 SPEC_GUARD_PROJECT=$(git -C "${SPEC_GUARD_FILE_PATH%/*}" rev-parse --show-toplevel 2>/dev/null) || exit 0
 
-# Existence precedence: AI.md (THE HOW, primary spec) > AGENTS.md (loader —
-# its presence without AI.md means a broken bootstrap, not "ungoverned") >
-# SPEC.md (project-rule overrides; gates on its own if AI.md is absent too)
-if [ -f "$SPEC_GUARD_PROJECT/AI.md" ]; then
-  :
-elif [ -f "$SPEC_GUARD_PROJECT/AGENTS.md" ] && [ ! -f "$SPEC_GUARD_PROJECT/SPEC.md" ]; then
-  SPEC_GUARD_MSG="BLOCKED: Spec guard — this project has a AGENTS.md loader but no AI.md/SPEC.md for it to load.
-project_dir: ${SPEC_GUARD_PROJECT}
-The loader implies this project was meant to be spec-governed. Bootstrap
-AI.md first (copy the matching go/rust/android template, or use the
-bootstrap/spec-migrator agent), then retry this edit."
-  printf '%s\n' "$SPEC_GUARD_MSG"
-  printf '%s\n' "$SPEC_GUARD_MSG" >&2
-  exit 2
-elif [ ! -f "$SPEC_GUARD_PROJECT/SPEC.md" ]; then
-  # Neither AI.md, AGENTS.md, nor SPEC.md — nothing to gate on
+# AI.md and SPEC.md opt projects into this guard. Other instruction files
+# (including AGENTS.md and CLAUDE.md) may stand alone without requiring either.
+if [ ! -f "$SPEC_GUARD_PROJECT/AI.md" ] && [ ! -f "$SPEC_GUARD_PROJECT/SPEC.md" ]; then
   exit 0
 fi
 
 SPEC_GUARD_MARKER="${TMPDIR:-/tmp}/codex-hooks/spec-guard/${SPEC_GUARD_SESSION_ID}/read"
 grep -qxF -- "$SPEC_GUARD_PROJECT" "$SPEC_GUARD_MARKER" 2>/dev/null && exit 0
 
-SPEC_GUARD_MSG="BLOCKED: Spec guard — AI.md/SPEC.md for this project has not been read yet this session.
+SPEC_GUARD_MSG="BLOCKED: Spec guard — this project's AI.md/SPEC.md has not been read yet this session.
 project_dir: ${SPEC_GUARD_PROJECT}
-Before editing project files: search AI.md for the section relevant to
-this task — it may use '## Part N' headings, '# PART N' headings, or no
-headings at all (if short, just Read the whole file). Read that section
-(and SPEC.md if present), then retry this edit.
+Before editing project files: read the section relevant to this task from
+AI.md if present, otherwise SPEC.md. If both exist, also read any applicable
+SPEC.md rules. Then retry this edit.
 This gate re-arms after every compaction — re-read the spec again after a compact before resuming edits."
 
 printf '%s\n' "$SPEC_GUARD_MSG"

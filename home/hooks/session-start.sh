@@ -12,9 +12,10 @@
 # @@Description      :  SessionStart hook: inject project-dir context to anchor every session
 # @@Changelog        :  Drain stdin and fail open (exit 0) when python3 is missing instead of surfacing a hook error under set -e.
 # @@TODO             :
-# @@Other            :  Silently exits if not inside a git repo with a project AGENTS.md or AI.md
+# @@Other            :  Silently exits if not inside a git repo with project instruction/spec files
 # @@Resource         :
 # - - - - - - - - - - - - - - - - - - - - - - - - -
+# shellcheck disable=SC2034
 VERSION="202609170001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -31,25 +32,37 @@ project=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null) || exit 0
 has_agents=0
 has_ai=0
 has_spec=0
+has_idea=0
+has_claude=0
 [ -f "$project/AGENTS.md" ] && has_agents=1
 [ -f "$project/AI.md" ] && has_ai=1
 [ -f "$project/SPEC.md" ] && has_spec=1
+[ -f "$project/IDEA.md" ] && has_idea=1
+[ -f "$project/CLAUDE.md" ] && has_claude=1
 
-# Only fire when the project has a AGENTS.md or AI.md (a managed project)
-[ "$has_agents" -eq 1 ] || [ "$has_ai" -eq 1 ] || exit 0
+# These files are optional; inject context only for those present.
+[ "$has_agents" -eq 1 ] || [ "$has_ai" -eq 1 ] || [ "$has_spec" -eq 1 ] || [ "$has_idea" -eq 1 ] || [ "$has_claude" -eq 1 ] || exit 0
 
 LINES=("SESSION CONTEXT" "project_dir: ${project}")
-if [ "$has_agents" -eq 1 ]; then
-  LINES+=("Read ${project}/AGENTS.md first — it is a short loader; this project's real spec lives in AI.md (THE HOW) and IDEA.md (THE WHAT).")
+if [ "$has_agents" -eq 1 ] || [ "$has_claude" -eq 1 ]; then
+  instruction_files=()
+  [ "$has_agents" -eq 1 ] && instruction_files+=("${project}/AGENTS.md")
+  [ "$has_claude" -eq 1 ] && instruction_files+=("${project}/CLAUDE.md")
+  LINES+=("Read the project's instruction files: ${instruction_files[*]}.")
 fi
-LINES+=("Project AGENTS.md and AI.md are the source of truth for this session — they override the global ~/.codex/AGENTS.md.")
+if [ "$has_ai" -eq 1 ] || [ "$has_spec" -eq 1 ] || [ "$has_idea" -eq 1 ]; then
+  project_docs=()
+  [ "$has_ai" -eq 1 ] && project_docs+=("AI.md")
+  [ "$has_spec" -eq 1 ] && project_docs+=("SPEC.md")
+  [ "$has_idea" -eq 1 ] && project_docs+=("IDEA.md")
+  LINES+=("Project documentation present: ${project_docs[*]}. Consult the files relevant to this task; these files are optional.")
+fi
 if [ "$has_spec" -eq 1 ]; then
-  LINES+=("SPEC.md exists — it overrides AI.md for any rule it addresses. Precedence: SPEC.md > AI.md > global AGENTS.md.")
+  if [ "$has_ai" -eq 1 ]; then
+    LINES+=("SPEC.md overrides AI.md for any rule it addresses.")
+  fi
 fi
 LINES+=("All writes must stay within ${project} unless the user explicitly names an external path.")
-if [ "$has_ai" -eq 1 ]; then
-  LINES+=("Read AI.md and IDEA.md before acting on this project.")
-fi
 
 MSG=$(printf '%s\n' "${LINES[@]}")
 
