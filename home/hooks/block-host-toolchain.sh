@@ -67,9 +67,8 @@ except Exception:
 }
 
 # __block <tool> <docker_cmd> <convention_ref>
-# Emits the block message to BOTH stdout (Codex reads this as the block
-# reason and feeds it back to Codex) and stderr (visible to the user in the
-# terminal), then exits 2 to block the tool call.
+# Emits the block message to both streams, then exits 2. The configured
+# pretool-hook-result.py adapter returns it as a structured denial.
 #
 # The stdout message includes a temp-directory reminder so Codex knows to
 # mount build output into a proper temp dir, never into the project tree.
@@ -94,9 +93,9 @@ and mount it as an additional -v flag. See ~/.codex/memory/tempdir_conventions.m
     msg="${msg}
 Convention: ${ref}"
   fi
-  # stdout → Codex (block reason returned to Codex as context)
+  # Keep the reason on stdout for direct diagnostics.
   printf '%s\n' "$msg"
-  # stderr → user terminal
+  # The adapter uses stderr as the structured denial reason.
   printf '%s\n' "$msg" >&2
   exit 2
 }

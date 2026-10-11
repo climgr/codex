@@ -29,87 +29,87 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/drift-guard-read.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" drift-guard-read.sh 9 -- bash \"$HOME/.codex/hooks/drift-guard-read.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/no-read-gitcommit.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" no-read-gitcommit.sh 9 -- bash \"$HOME/.codex/hooks/no-read-gitcommit.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/protect-host.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" protect-host.sh 9 -- bash \"$HOME/.codex/hooks/protect-host.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/block-host-toolchain.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" block-host-toolchain.sh 9 -- bash \"$HOME/.codex/hooks/block-host-toolchain.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/enforce-docker-rm.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" enforce-docker-rm.sh 9 -- bash \"$HOME/.codex/hooks/enforce-docker-rm.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/bound-shell-lifetime.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" bound-shell-lifetime.sh 9 -- bash \"$HOME/.codex/hooks/bound-shell-lifetime.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/zone-git-commit-push.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" zone-git-commit-push.sh 9 -- bash \"$HOME/.codex/hooks/zone-git-commit-push.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/no-subagent-commit.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" no-subagent-commit.sh 9 -- bash \"$HOME/.codex/hooks/no-subagent-commit.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/no-force-push.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" no-force-push.sh 9 -- bash \"$HOME/.codex/hooks/no-force-push.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/no-history-rewrite.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" no-history-rewrite.sh 9 -- bash \"$HOME/.codex/hooks/no-history-rewrite.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/no-destructive-bypass.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" no-destructive-bypass.sh 9 -- bash \"$HOME/.codex/hooks/no-destructive-bypass.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/bash-content-scan.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" bash-content-scan.sh 9 -- bash \"$HOME/.codex/hooks/bash-content-scan.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/enforce-gitcommit-shape.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" enforce-gitcommit-shape.sh 9 -- bash \"$HOME/.codex/hooks/enforce-gitcommit-shape.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/enforce-test-lint-gate.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" enforce-test-lint-gate.sh 9 -- bash \"$HOME/.codex/hooks/enforce-test-lint-gate.sh\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/enforce-commit-mess-coverage.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" enforce-commit-mess-coverage.sh 14 -- bash \"$HOME/.codex/hooks/enforce-commit-mess-coverage.sh\"",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/enforce-doc-sync.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" enforce-doc-sync.sh 14 -- bash \"$HOME/.codex/hooks/enforce-doc-sync.sh\"",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash \"$HOME/.codex/hooks/validate-workflows.sh\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" validate-workflows.sh 119 -- bash \"$HOME/.codex/hooks/validate-workflows.sh\"",
             "timeout": 120
           }
         ]
@@ -119,7 +119,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.codex/apply-patch-policy.py\"",
+            "command": "python3 \"$HOME/.codex/pretool-hook-result.py\" apply-patch-policy.py 19 -- python3 \"$HOME/.codex/apply-patch-policy.py\"",
             "timeout": 20
           }
         ]

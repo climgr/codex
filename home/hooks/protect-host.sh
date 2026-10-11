@@ -378,10 +378,8 @@ print("\n".join(kept))
 '
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# __block <reason> - emit a structured BLOCKED message and exit 2.
-# AI.md Part 6's blocking-output format writes the reason to both streams:
-# stderr so Codex feeds it back as the block reason, stdout so the
-# same text is also captured in the session transcript.
+# __block <reason> - emit a BLOCKED message on both streams and exit 2.
+# pretool-hook-result.py converts this into a structured Codex denial.
 __block() {
   printf 'BLOCKED: %s\n' "$1"
   printf 'BLOCKED: %s\n' "$1" >&2

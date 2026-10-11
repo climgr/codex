@@ -12,7 +12,7 @@
 # @@Description      :  PreToolUse hook: validate staged .github/workflows files with act --list before gitcommit
 # @@Changelog        :  Added the header block, timeout wrapping, setupmgr guard, --dir= parsing, and dual-stream BLOCKED output; fixed the license header field to WTFPL.
 # @@TODO             :
-# @@Other            :  Exit 0 = allow, exit 2 = block (message sent to Codex as context)
+# @@Other            :  Exit 0 = allow, exit 2 = block; pretool-hook-result.py returns the reason as a structured denial.
 # @@Resource         :
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
@@ -21,8 +21,8 @@ VERSION="202608301800-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
-# __blocked <msg> — emit the block reason to BOTH stdout and stderr, then exit 2.
-# On exit 2 Codex relays stderr to the model; stdout is shown to the user.
+# __blocked <msg> — emit the block reason to both streams, then exit 2.
+# The configured adapter wraps this as a structured PreToolUse denial.
 __blocked() {
     printf '%s\n' "$1"
     printf '%s\n' "$1" >&2
