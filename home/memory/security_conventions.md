@@ -272,14 +272,20 @@ Beyond the Core OS paths floor (`~/.codex/AGENTS.md`'s "Working Directory & Path
 - **Shell redirects to auth-critical/system-binary paths** — `>`/`>>` targeting any of the paths above is equivalent to a destructive write and gated identically; `/dev/null`, `/dev/std{in,out,err}`, `/dev/tty`, `/dev/fd/N`, `/dev/pts/N` are always safe and exempt
 - **`find -delete` / `find -exec rm`** — a `find` invocation whose action deletes matched files is a destructive op regardless of the starting path; gated the same as a direct `rm`
 
-These formalize `protect-host.sh`'s existing enforcement — they are not new restrictions, but the written source of truth the hook implements.
+These formalize `protect-host.sh`'s existing enforcement for commands that
+execute on the local host — they are not new restrictions, but the written
+source of truth the hook implements. Commands explicitly executed through SSH,
+or inside Docker/Podman, Incus/LXC, Kubernetes, Vagrant, Multipass, or another
+recognized guest boundary are checked as remote/guest operations, not as local
+host operations. A separate local command in the same compound command remains
+subject to host checks.
 
 ---
 
 ## Destructive Operation Gates
 
 - **Temp/cache/build dirs never need confirmation** — `rm -rf` targeting a path under `${TMPDIR:-/tmp}/{project_org}/` (the recognized tempdir structure, see `tempdir_conventions.md`) is disposable and project-scoped; run it directly. Never extends to `/tmp` itself, `/tmp/*`, or any path outside the project's own `{project_org}/` subtree — those still require confirmation
-- **`dd`/`shred`/`mkfs*`/`wipefs`/`git reset` are hard-denied, not confirm-gated** — the Codex `no-destructive-bypass.sh` hook blocks these outright with no confirm path; `no-destructive-bypass.sh` enforces this
+- **Host `dd`/`shred`/`mkfs*`/`wipefs`/`git reset` are hard-denied, not confirm-gated** — `no-destructive-bypass.sh` blocks these when they execute on the local host. Commands explicitly sent to a remote host or run inside a recognized guest are outside this host-only denial; host commands in the same compound command remain checked.
 - **A `git status` deletion is not automatically an error to fix** — `git restore`, `git checkout -- <path>`, and any additive-restore/deploy step (e.g. `install.sh` copying `home/` → `~/.codex/`) undo the user's own uncommitted change. Never run one of these on a file the user didn't ask to have restored just because it shows as deleted/modified — deliberate cleanup (pending regeneration via `bootstrap`) is more likely than damage. Ask first before reverting anything the user didn't report as broken. Exception: the Session Start stash/pull/pop sequence's own `git stash pop` is separately pre-authorized
 - **systemctl gate** — `status`/`is-active`/`is-enabled`/`cat`/`show` and `--user` variants are always OK; `restart`/`stop`/`start`/`reload`/`disable`/`enable`/`mask`/`isolate`/`kill` on host services require user confirmation — `isolate` tears down every unit outside the target's dependency tree, and `kill` signals a unit's processes directly, so both carry the same blast-radius risk as `restart`/`stop`. **Exception:** under `~/Projects/local/system/**`, `start`/`stop`/`restart`/`reload`/`reload-or-restart`/`try-restart`/`enable`/`disable`/`reset-failed`/`daemon-reload` are pre-authorized without per-call confirmation; `mask`/`unmask`/`edit`/`set-property`/`isolate`/`kill` still require confirmation everywhere, including in the zone
 - **kill scoping** — `kill $PID` only when `$PID` was captured at launch in the current task (`PID=$!`)

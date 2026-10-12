@@ -30,6 +30,12 @@ Check which VM backends are installed and usable rather than assuming one is ava
 
 ## Cleanup rules
 
+The repository contains source and documentation. Keep VM/cloud images, seed
+files, overlay disks, SSH keys, logs, and other runtime artifacts outside the
+repository in a project-scoped OS temp directory, following
+`tempdir_conventions.md`. Create sensitive artifacts such as SSH keys in a
+mode-`0700` directory, and remove temporary artifacts when the task is done.
+
 - **Per-project VM cap:** Across all Codex sessions and agents working on the
   same project, no more than **4 AI-created VMs for that project may be running
   or starting at once**. Identify a project's VMs by its required

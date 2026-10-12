@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609170001-git
+##@Version           :  202610120001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,10 +9,10 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 17:00 EDT
 # @@File             :  no-destructive-bypass.sh
-# @@Description      :  PreToolUse hook: hard-blocks git reset/dd/shred/mkfs*/wipefs everywhere, re-enforcing no-destructive-bypass.sh against alias/wrapper-bypass invocations.
+# @@Description      :  PreToolUse hook: hard-blocks git reset/dd/shred/mkfs*/wipefs on the local host, including alias/wrapper-bypass invocations.
 # @@Changelog        :  Decode the stdin payload file as UTF-8 with replacement and fail open on any parse exception (not only JSONDecodeError) — a non-UTF-8 byte previously raised UnicodeDecodeError and surfaced as a hook error.
 # @@TODO             :  None
-# @@Other              :  Container/VM-mediated invocations are NOT exempted — these five ops are denied unconditionally by Codex's command policy hook regardless of target.
+# @@Other              :  Explicit SSH and recognized guest payloads are outside the local-host denial; local host commands remain checked.
 # @@Resource         :  home/config.toml no-destructive-bypass.sh
 # @@Terminal App     :  no
 # @@sudo/root        :  no
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202609170001-git"
+VERSION="202610120001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -195,6 +195,54 @@ def basename_of(tok):
     return tok.rsplit("/", 1)[-1]
 
 
+def is_remote_or_guest(clean):
+    if not clean:
+        return False
+    head = basename_of(clean[0])
+    if head in {"ssh", "mosh", "systemd-nspawn"}:
+        return True
+    subcommand_options = {
+        "docker": {"-H", "--host", "--context", "--config", "--log-level",
+                   "--tlscacert", "--tlscert", "--tlskey"},
+        "podman": {"--url", "--connection", "--runtime", "--root", "--runroot"},
+        "incus": {"--project", "--config"},
+        "lxc": {"--project", "--config"},
+        "kubectl": {"--context", "--namespace", "-n", "--cluster", "--user"},
+    }
+    if head in {"docker-compose", "podman-compose"}:
+        return len(clean) > 1 and clean[1] in {"exec", "run"}
+    if head in subcommand_options:
+        index = 1
+        while index < len(clean):
+            token = clean[index]
+            if token in subcommand_options[head]:
+                index += 2
+                continue
+            if token.startswith("--") and "=" in token:
+                index += 1
+                continue
+            if token.startswith("-"):
+                index += 1
+                continue
+            break
+        if head in {"docker", "podman"} and index < len(clean) and clean[index] == "compose":
+            index += 1
+        if index < len(clean) and clean[index] == "container":
+            index += 1
+        return index < len(clean) and clean[index] in {"exec", "run", "shell", "debug"}
+    guest_subcommands = {
+        "incus": {"exec", "shell", "file"},
+        "lxc": {"exec", "shell", "file"},
+        "kubectl": {"exec", "debug"},
+        "machinectl": {"shell"},
+        "vagrant": {"ssh"},
+        "multipass": {"exec", "shell"},
+        "distrobox": {"enter"},
+        "toolbox": {"run"},
+    }
+    return len(clean) > 1 and clean[1] in guest_subcommands.get(head, set())
+
+
 violations = []
 seen_subshell_recursion = set()
 
@@ -203,6 +251,11 @@ def scan_tokens(clean, sub_cmd, depth=0):
     if depth > 5 or not clean:
         return
     head = basename_of(clean[0])
+
+    # Apply destructive-operation checks to local host commands only.
+    # Splitting still checks separate local commands in the same shell chain.
+    if is_remote_or_guest(clean):
+        return
 
     if head == "dd":
         violations.append((sub_cmd, "dd"))
@@ -299,13 +352,13 @@ if not violations:
     sys.exit(0)
 
 msg = (
-    "BLOCKED: destructive operation denied everywhere (git reset, dd, shred,\n"
+    "BLOCKED: destructive operation denied on the local host (git reset, dd, shred,\n"
     "mkfs*, wipefs).\n\n"
-    "These are unconditionally denied by config.toml's no-destructive-bypass.sh, but\n"
-    "a wrapper (\\cmd, command cmd, env KEY=VAL cmd) can slip past its raw glob\n"
+    "These are blocked by no-destructive-bypass.sh on the local host, but a wrapper\n"
+    "(\\cmd, command cmd, env KEY=VAL cmd) can slip past its raw glob\n"
     "match. This hook re-enforces the same policy after stripping wrappers.\n\n"
-    "Ask the user to confirm, then have them run the command manually -\n"
-    "this hook cannot grant a one-time exception.\n\n"
+    "Explicit SSH and recognized guest payloads are outside this host-only rule.\n"
+    "Host commands in the same compound command remain checked.\n\n"
     "Violating command(s):\n"
 )
 for sub, verb in violations:

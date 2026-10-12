@@ -14,8 +14,13 @@ The repository's `AGENTS.md` and any authoritative `AI.md`, `IDEA.md`, or
 the project's `AI.md` and `IDEA.md` are authoritative.
 
 Resolve `{project_dir}` as `git rev-parse --show-toplevel` inside a Git
-repository, otherwise as the session's starting directory. Keep all writes
-inside the project unless the user explicitly names another path. Never
+repository, otherwise as the session's starting directory. Keep source and
+documentation changes inside the project unless the user explicitly names
+another path. Runtime data, test output, build products, VM/cloud images, seed
+files, overlay disks, SSH keys, and logs are execution artifacts, not project
+files: put them in a project-scoped OS temp directory following
+`memory/tempdir_conventions.md`, use owner-only permissions for sensitive
+artifacts, and remove temporary artifacts when the task is complete. Never
 modify host configuration, another repository, or global tool configuration
 as a workaround for a project problem.
 

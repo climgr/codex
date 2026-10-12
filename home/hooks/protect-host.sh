@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610070001-git
+##@Version           :  202610120001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610070003-git"
+VERSION="202610120001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -56,12 +56,13 @@ PROTECT_HOST_HOME_LITERAL="(${PROTECT_HOST_HOME_PATH}|~|\\\$HOME)"
 PROTECT_HOST_DESTRUCTIVE_VERBS='rm|rmd|rmdir|shred|truncate|wipefs'
 # Write verbs that install/overwrite files.
 PROTECT_HOST_WRITE_VERBS='mv|cp|install|ln'
-# Container/VM-mediated command prefixes — anything running INSIDE a container or
-# test VM is exempt from every rule (the blast radius is the disposable guest, not
-# the host). Newline-separated; consumed by both python helpers via the environment
+# Remote/guest command prefixes — payloads sent over SSH or executed in a guest
+# are outside local-host path checks. Newline-separated; consumed by both helpers
 # so the two lists can never drift apart. Entries ending in "-" match as-is
 # (qemu-system-x86_64 etc.); all others get a trailing space for word-boundary safety.
-PROTECT_HOST_CONTAINER_PREFIXES="docker exec
+PROTECT_HOST_REMOTE_PREFIXES="ssh
+mosh
+docker exec
 docker run
 docker container exec
 docker container run
@@ -95,7 +96,7 @@ multipass shell
 distrobox enter
 toolbox run
 qemu-system-"
-export PROTECT_HOST_CONTAINER_PREFIXES
+export PROTECT_HOST_REMOTE_PREFIXES
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Helpers
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -134,8 +135,9 @@ except Exception:
 # __strip_heredoc_bodies - remove heredoc BODY lines before scanning, but only when
 # the heredoc feeds a non-shell command (python3, cat, tee, jq, ...). Body text fed
 # to bash/sh/zsh/dash/ksh/ash IS executable shell and stays fully scanned - no bypass
-# through the shell itself - UNLESS the shell is container/VM-mediated (docker exec,
-# incus exec, ...): those bodies execute inside the disposable guest and are exempt. Rationale: a python/cat heredoc that merely MENTIONS
+# through the shell itself - UNLESS the shell is remote/guest-mediated (ssh, docker
+# exec, incus exec, ...): those bodies execute outside the host and are exempt.
+# Rationale: a python/cat heredoc that merely MENTIONS
 # "rm -rf /" is data, not a command, and blocking it is a false positive. A deliberate
 # evasion via python (os.system etc.) never matched these shell-shaped regexes anyway;
 # this hook is an accident guardrail, not a security boundary. On any parse error the
@@ -147,12 +149,10 @@ text = sys.stdin.read()
 try:
     shells = {"bash", "sh", "zsh", "dash", "ksh", "ash"}
     raw_prefixes = [
-        p for p in os.environ.get("PROTECT_HOST_CONTAINER_PREFIXES", "").splitlines()
+        p for p in os.environ.get("PROTECT_HOST_REMOTE_PREFIXES", "").splitlines()
         if p.strip()
     ]
-    # Same flag/sudo/whitespace-tolerant matcher as __strip_container_subcmds -
-    # "incus -q exec c bash <<EOF" and "sudo docker exec -i c bash <<EOF" are
-    # container-mediated heredocs too, not just the exact literal prefix form.
+    # Same flag/sudo/whitespace-tolerant matcher as __strip_remote_subcmds.
     patterns = []
     for p in raw_prefixes:
         if p.endswith("-"):
@@ -197,18 +197,18 @@ except Exception:
 '
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# __strip_container_subcmds - split the command on newlines and shell separators,
-# drop sub-commands that run inside a container/sandbox, print the rest one per line.
+# __strip_remote_subcmds - split shell commands and drop remote/guest payloads,
+# while preserving local commands for host checks.
 # Splitting is intentionally naive (quoted separators over-split) — over-splitting
 # only makes the check stricter, never looser. Exempting per sub-command closes the
 # old whole-command-prefix bypass: "docker run --rm img true; rm -rf ~" no longer
 # gets a free pass just because the string STARTS with "docker run ".
-__strip_container_subcmds() {
+__strip_remote_subcmds() {
   python3 -c '
 import os, re, sys
 cmd = sys.stdin.read()
 raw_prefixes = [
-    p for p in os.environ.get("PROTECT_HOST_CONTAINER_PREFIXES", "").splitlines()
+    p for p in os.environ.get("PROTECT_HOST_REMOTE_PREFIXES", "").splitlines()
     if p.strip()
 ]
 # Build a matcher per prefix: exact dash-suffixed prefixes (qemu-system-) match
@@ -220,6 +220,9 @@ for p in raw_prefixes:
         patterns.append(re.compile(r"^" + re.escape(p)))
         continue
     words = p.split(" ")
+    if len(words) == 1:
+        patterns.append(re.compile(r"^" + re.escape(words[0]) + r"(?:\s|$)"))
+        continue
     binary, rest = words[0], " ".join(words[1:])
     patterns.append(re.compile(
         r"^" + re.escape(binary) + r"(?:\s+-{1,2}\S+)*\s+"
@@ -363,8 +366,8 @@ for part in split_shell_commands(cmd):
         continue
     # normalize house-style alias-safe backslashes, command/env/exec/sudo
     # wrappers (sudo may carry its own flags, e.g. "sudo -u root") for the
-    # exemption check only — \docker exec, command docker exec, and
-    # sudo incus exec are still container-mediated; the original sub is
+    # exemption check only — \ssh, command docker exec, and sudo incus exec
+    # are remote/guest commands; the original sub is
     # what gets kept and scanned. Collapse repeated whitespace too, so
     # "incus  exec" (double space) still matches "incus exec".
     probe = re.sub(
@@ -415,9 +418,9 @@ PROTECT_HOST_RAW_CMD="$PROTECT_HOST_CMD"
 # Empty / non-Bash payload - nothing to inspect.
 [ -z "$PROTECT_HOST_CMD" ] && exit 0
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Container-mediated sub-commands are explicitly trusted at this layer;
-# everything else in a compound/multi-line command is still inspected.
-PROTECT_HOST_CMD="$(printf '%s' "$PROTECT_HOST_CMD" | __strip_container_subcmds)"
+# Remote/guest payloads are outside this host-specific layer. Every other
+# sub-command in a compound/multi-line command is still inspected.
+PROTECT_HOST_CMD="$(printf '%s' "$PROTECT_HOST_CMD" | __strip_remote_subcmds)"
 [ -z "$PROTECT_HOST_CMD" ] && exit 0
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Word-boundary fragment reused across rules.
