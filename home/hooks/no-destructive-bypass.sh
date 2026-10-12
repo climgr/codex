@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610120001-git
+##@Version           :  202610120002-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,7 +9,7 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 17:00 EDT
 # @@File             :  no-destructive-bypass.sh
-# @@Description      :  PreToolUse hook: hard-blocks git reset/dd/shred/mkfs*/wipefs on the local host, including alias/wrapper-bypass invocations.
+# @@Description      :  PreToolUse hook: hard-blocks host and SSH destructive operations, including alias/wrapper-bypass invocations.
 # @@Changelog        :  Decode the stdin payload file as UTF-8 with replacement and fail open on any parse exception (not only JSONDecodeError) — a non-UTF-8 byte previously raised UnicodeDecodeError and surfaced as a hook error.
 # @@TODO             :  None
 # @@Other              :  Explicit SSH and recognized guest payloads are outside the local-host denial; local host commands remain checked.
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610120001-git"
+VERSION="202610120002-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -99,6 +99,37 @@ def strip_heredoc_bodies(text):
             delims = []
             for m in re.finditer(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1", line):
                 head = {t.rsplit("/", 1)[-1].lstrip("\\") for t in line[: m.start()].split()}
+                try:
+                    head_tokens = shlex.split(line[:m.start()])
+                except ValueError:
+                    head_tokens = []
+                remote_shell = False
+                if head_tokens and os.path.basename(head_tokens[0].lstrip("\\")) in {"ssh", "mosh"}:
+                    value_options = {"-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I", "-i",
+                                     "-J", "-L", "-l", "-m", "-O", "-o", "-p", "-Q", "-R",
+                                     "-S", "-W", "-w"}
+                    index = 1
+                    while index < len(head_tokens):
+                        token = head_tokens[index]
+                        if token == "--":
+                            index += 1
+                            if index < len(head_tokens):
+                                index += 1
+                            break
+                        if token in value_options:
+                            index += 2
+                            continue
+                        if token.startswith("-"):
+                            index += 1
+                            continue
+                        index += 1
+                        break
+                    remote_tokens = head_tokens[index:]
+                    remote_shell = not remote_tokens or any(
+                        os.path.basename(token) in HEREDOC_SHELLS for token in remote_tokens[:3]
+                    )
+                if remote_shell:
+                    continue
                 if not (head & HEREDOC_SHELLS):
                     delims.append(m.group(2))
             i += 1
@@ -243,6 +274,31 @@ def is_remote_or_guest(clean):
     return len(clean) > 1 and clean[1] in guest_subcommands.get(head, set())
 
 
+def ssh_payload(clean):
+    if not clean or basename_of(clean[0]) not in {"ssh", "mosh"}:
+        return []
+    value_options = {"-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I", "-i",
+                     "-J", "-L", "-l", "-m", "-O", "-o", "-p", "-Q", "-R",
+                     "-S", "-W", "-w"}
+    index = 1
+    while index < len(clean):
+        token = clean[index]
+        if token == "--":
+            index += 1
+            if index < len(clean):
+                index += 1
+            break
+        if token in value_options:
+            index += 2
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        index += 1
+        break
+    return clean[index:]
+
+
 violations = []
 seen_subshell_recursion = set()
 
@@ -254,6 +310,20 @@ def scan_tokens(clean, sub_cmd, depth=0):
 
     # Apply destructive-operation checks to local host commands only.
     # Splitting still checks separate local commands in the same shell chain.
+    if basename_of(clean[0]) in {"ssh", "mosh"}:
+        remote = ssh_payload(clean)
+        if remote:
+            remote_command = " ".join(remote)
+            for nested in split_subcmds(remote_command):
+                nested = nested.strip()
+                if not nested:
+                    continue
+                try:
+                    nested_tokens = shlex.split(nested)
+                except ValueError:
+                    nested_tokens = nested.split()
+                scan_tokens(strip_wrappers(nested_tokens), nested, depth + 1)
+        return
     if is_remote_or_guest(clean):
         return
 
@@ -352,12 +422,12 @@ if not violations:
     sys.exit(0)
 
 msg = (
-    "BLOCKED: destructive operation denied on the local host (git reset, dd, shred,\n"
+    "BLOCKED: destructive operation denied on the local host or remote shell (git reset, dd, shred,\n"
     "mkfs*, wipefs).\n\n"
-    "These are blocked by no-destructive-bypass.sh on the local host, but a wrapper\n"
+    "These are blocked locally and in parsed SSH/Mosh payloads, but a wrapper\n"
     "(\\cmd, command cmd, env KEY=VAL cmd) can slip past its raw glob\n"
     "match. This hook re-enforces the same policy after stripping wrappers.\n\n"
-    "Explicit SSH and recognized guest payloads are outside this host-only rule.\n"
+    "SSH payloads are checked for these operations; recognized guest payloads are exempt.\n"
     "Host commands in the same compound command remain checked.\n\n"
     "Violating command(s):\n"
 )

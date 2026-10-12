@@ -274,18 +274,18 @@ Beyond the Core OS paths floor (`~/.codex/AGENTS.md`'s "Working Directory & Path
 
 These formalize `protect-host.sh`'s existing enforcement for commands that
 execute on the local host — they are not new restrictions, but the written
-source of truth the hook implements. Commands explicitly executed through SSH,
-or inside Docker/Podman, Incus/LXC, Kubernetes, Vagrant, Multipass, or another
-recognized guest boundary are checked as remote/guest operations, not as local
-host operations. A separate local command in the same compound command remains
-subject to host checks.
+source of truth the hook implements. Commands inside Docker/Podman, Incus/LXC,
+Kubernetes, Vagrant, Multipass, or another recognized guest boundary are
+checked as guest operations, not as local host operations. SSH and Mosh payloads
+receive the dangerous-path checks against their remote target. A separate local command
+in the same compound command remains subject to local host checks.
 
 ---
 
 ## Destructive Operation Gates
 
-- **Temp/cache/build dirs never need confirmation** — `rm -rf` targeting a path under `${TMPDIR:-/tmp}/{project_org}/` (the recognized tempdir structure, see `tempdir_conventions.md`) is disposable and project-scoped; run it directly. Never extends to `/tmp` itself, `/tmp/*`, or any path outside the project's own `{project_org}/` subtree — those still require confirmation
-- **Host `dd`/`shred`/`mkfs*`/`wipefs`/`git reset` are hard-denied, not confirm-gated** — `no-destructive-bypass.sh` blocks these when they execute on the local host. Commands explicitly sent to a remote host or run inside a recognized guest are outside this host-only denial; host commands in the same compound command remain checked.
+- **Temp/cache/build dirs never need confirmation** — `rm -rf` targeting a path under `${TMPDIR:-/tmp}/{project_org}/{internal_name}-XXXXXX/` (the recognized tempdir structure, see `tempdir_conventions.md`) is disposable and project-scoped; run it directly. A saved path variable is allowed when the same command verifies it is non-empty, a real directory, not a symlink, and matches the current project's temp prefix. Never extends to `/tmp` itself, `/tmp/*`, or any path outside the project's own `{project_org}/{internal_name}-` subtree — those still require confirmation.
+- **Host and remote-shell `dd`/`shred`/`mkfs*`/`wipefs`/`git reset` are hard-denied, not confirm-gated** — `no-destructive-bypass.sh` blocks these on the local host and in parsed SSH/Mosh payloads. Commands inside a recognized guest are outside this host-only denial; host commands in the same compound command remain checked.
 - **A `git status` deletion is not automatically an error to fix** — `git restore`, `git checkout -- <path>`, and any additive-restore/deploy step (e.g. `install.sh` copying `home/` → `~/.codex/`) undo the user's own uncommitted change. Never run one of these on a file the user didn't ask to have restored just because it shows as deleted/modified — deliberate cleanup (pending regeneration via `bootstrap`) is more likely than damage. Ask first before reverting anything the user didn't report as broken. Exception: the Session Start stash/pull/pop sequence's own `git stash pop` is separately pre-authorized
 - **systemctl gate** — `status`/`is-active`/`is-enabled`/`cat`/`show` and `--user` variants are always OK; `restart`/`stop`/`start`/`reload`/`disable`/`enable`/`mask`/`isolate`/`kill` on host services require user confirmation — `isolate` tears down every unit outside the target's dependency tree, and `kill` signals a unit's processes directly, so both carry the same blast-radius risk as `restart`/`stop`. **Exception:** under `~/Projects/local/system/**`, `start`/`stop`/`restart`/`reload`/`reload-or-restart`/`try-restart`/`enable`/`disable`/`reset-failed`/`daemon-reload` are pre-authorized without per-call confirmation; `mask`/`unmask`/`edit`/`set-property`/`isolate`/`kill` still require confirmation everywhere, including in the zone
 - **kill scoping** — `kill $PID` only when `$PID` was captured at launch in the current task (`PID=$!`)

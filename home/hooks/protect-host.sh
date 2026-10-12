@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610120001-git
+##@Version           :  202610120002-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -20,13 +20,13 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610120001-git"
+VERSION="202610120002-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Protection philosophy: surgical, not broad.
 #
-# ALWAYS blocked (true non-exemptables):
+# ALWAYS blocked on the local host and in parsed SSH payloads:
 #   • Delete/corrupt auth-critical files: /etc/passwd, /etc/shadow, /etc/group,
 #     /etc/gshadow, /etc/sudoers, /etc/master.passwd
 #   • Write arbitrary files into core OS binary dirs: /bin/, /sbin/, /usr/bin/, /usr/sbin/
@@ -133,10 +133,9 @@ except Exception:
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # __strip_heredoc_bodies - remove heredoc BODY lines before scanning, but only when
-# the heredoc feeds a non-shell command (python3, cat, tee, jq, ...). Body text fed
-# to bash/sh/zsh/dash/ksh/ash IS executable shell and stays fully scanned - no bypass
-# through the shell itself - UNLESS the shell is remote/guest-mediated (ssh, docker
-# exec, incus exec, ...): those bodies execute outside the host and are exempt.
+# the heredoc feeds a non-shell command (python3, cat, tee, jq, ...). Host-shell
+# bodies stay scanned; guest-shell bodies are exempt. SSH shell input is preserved
+# for remote target checks.
 # Rationale: a python/cat heredoc that merely MENTIONS
 # "rm -rf /" is data, not a command, and blocking it is a false positive. A deliberate
 # evasion via python (os.system etc.) never matched these shell-shaped regexes anyway;
@@ -144,7 +143,7 @@ except Exception:
 # original text is emitted unchanged so scanning never silently weakens.
 __strip_heredoc_bodies() {
   python3 -c '
-import os, re, sys
+import os, re, shlex, sys
 text = sys.stdin.read()
 try:
     shells = {"bash", "sh", "zsh", "dash", "ksh", "ash"}
@@ -159,6 +158,9 @@ try:
             patterns.append(re.compile(r"^" + re.escape(p)))
             continue
         words = p.split(" ")
+        if len(words) == 1:
+            patterns.append(re.compile(r"^" + re.escape(words[0]) + r"(?:\s|$)"))
+            continue
         binary, rest = words[0], " ".join(words[1:])
         patterns.append(re.compile(
             r"^" + re.escape(binary) + r"(?:\s+-{1,2}\S+)*\s+"
@@ -181,15 +183,49 @@ try:
                 "", head.strip()
             )
             probe = re.sub(r"\s+", " ", probe).strip()
-            if any(pat.match(probe) for pat in patterns) or not (tokens & shells):
-                delims.append(m.group(2))
+            matches = [pat for pat in patterns if pat.match(probe)]
+            ssh_shell_input = False
+            if re.match(r"^(ssh|mosh)(?:\s|$)", probe):
+                try:
+                    ssh_tokens = shlex.split(probe)
+                except ValueError:
+                    ssh_tokens = []
+                value_options = {"-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I", "-i",
+                                 "-J", "-L", "-l", "-m", "-O", "-o", "-p", "-Q", "-R",
+                                 "-S", "-W", "-w"}
+                index = 1
+                while index < len(ssh_tokens):
+                    token = ssh_tokens[index]
+                    if token == "--":
+                        index += 1
+                        if index < len(ssh_tokens):
+                            index += 1
+                        break
+                    if token in value_options:
+                        index += 2
+                        continue
+                    if token.startswith("-"):
+                        index += 1
+                        continue
+                    index += 1
+                    break
+                remote_tokens = ssh_tokens[index:]
+                ssh_shell_input = not remote_tokens or any(
+                    os.path.basename(token) in shells for token in remote_tokens[:3]
+                )
+            if (matches and not ssh_shell_input) or (not matches and not (tokens & shells)):
+                delims.append((m.group(2), False))
+            elif ssh_shell_input:
+                delims.append((m.group(2), True))
         i += 1
-        for delim in delims:
+        for delim, scan_body in delims:
             while i < len(lines):
                 if lines[i].strip() == delim:
                     out.append(lines[i])
                     i += 1
                     break
+                if scan_body:
+                    out.append(lines[i])
                 i += 1
     print("\n".join(out))
 except Exception:
@@ -197,8 +233,8 @@ except Exception:
 '
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# __strip_remote_subcmds - split shell commands and drop remote/guest payloads,
-# while preserving local commands for host checks.
+# __strip_remote_subcmds - keep SSH payloads for strict path checks, drop other
+# guest payloads, and preserve local commands for host checks.
 # Splitting is intentionally naive (quoted separators over-split) — over-splitting
 # only makes the check stricter, never looser. Exempting per sub-command closes the
 # old whole-command-prefix bypass: "docker run --rm img true; rm -rf ~" no longer
@@ -229,6 +265,34 @@ for p in raw_prefixes:
         + re.escape(rest) + r"(?:\s|$)"
     ))
 import shlex
+
+def ssh_payload(command):
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return ""
+    if not tokens or os.path.basename(tokens[0].lstrip("\\")) not in {"ssh", "mosh"}:
+        return ""
+    value_options = {"-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I", "-i",
+                     "-J", "-L", "-l", "-m", "-O", "-o", "-p", "-Q", "-R",
+                     "-S", "-W", "-w"}
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--":
+            index += 1
+            if index < len(tokens):
+                index += 1
+            break
+        if token in value_options:
+            index += 2
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        index += 1
+        break
+    return " ".join(tokens[index:])
 
 def split_shell_commands(text):
     operators = ("&&", "||", "\n", ";", "|", "&")
@@ -374,7 +438,12 @@ for part in split_shell_commands(cmd):
         r"^(?:\\|(?:command|builtin|env)\s+|exec\s+|sudo(?:\s+-\S+)*\s+)+", "", sub
     )
     probe = re.sub(r"\s+", " ", probe).strip()
-    if any(pat.match(probe) for pat in patterns):
+    matched = [pat for pat in patterns if pat.match(probe)]
+    if matched:
+        if re.match(r"^ssh(?:\s|$)", probe):
+            payload = ssh_payload(probe)
+            if payload:
+                kept.append(payload)
         continue
     kept.append(sub)
 print("\n".join(kept))

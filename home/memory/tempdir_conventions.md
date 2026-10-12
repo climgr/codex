@@ -133,6 +133,19 @@ ls -la "${TMPDIR:-/tmp}/${PROJECT_ORG}/"
 [ -n "${PROJECT_ORG}" ] && rm -rf "${TMPDIR:-/tmp}/${PROJECT_ORG}/"
 ```
 
+When cleanup uses a saved path variable, do not reject it solely because the
+target is variable-based. Check that it is non-empty and still points inside
+the current project's temp namespace in the same command:
+
+```bash
+[[ -n "${TEMP_DIR:-}" && -d "$TEMP_DIR" && ! -L "$TEMP_DIR" && \
+  "$TEMP_DIR" == "${TMPDIR:-/tmp}/${PROJECT_ORG}/${INTERNAL_NAME}-"* ]] && \
+  rm -rf -- "$TEMP_DIR"
+```
+
+Never run `rm -rf "$TEMP_DIR"` without this scope check; an unset or changed
+variable can resolve to an unsafe target.
+
 ## AI-Specific Rules
 
 - **NEVER** create or modify files in the project directory during testing — all runtime output goes to the temp dir
