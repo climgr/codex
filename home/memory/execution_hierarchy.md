@@ -25,8 +25,15 @@ Check which VM backends are installed and usable rather than assuming one is ava
 |------|-------------|------|
 | Docker | Maintained toolchain image: `casjaysdev/go:latest`, `casjaysdev/rust:latest`, `casjaysdev/android:latest`, `node:alpine`, `python:alpine`, etc. | Build, test, debug — never debian/ubuntu based |
 | Incus container | Distro image matching the target OS | systemd, service installs, OS config, distro compatibility when a VM is not requested |
-| Incus VM | Full OS image matching the target OS | VM testing when Incus QEMU hardware virtualization is available |
-| Libvirt/KVM, VirtualBox, QEMU/KVM, or another hardware hypervisor | Full OS image matching the target OS | VM testing; prefer hardware acceleration |
+| Incus VM | Distro-maintained cloud image matching the target OS, when available; otherwise a full OS image | VM testing when Incus QEMU hardware virtualization is available |
+| Libvirt/KVM, VirtualBox, QEMU/KVM, or another hardware hypervisor | Distro-maintained cloud image matching the target OS, when available; otherwise a full OS image | VM testing; prefer hardware acceleration |
+
+For VM testing, prefer a cloud image that supports cloud-init so the guest can
+be provisioned with SSH keys, users, passwords when needed, packages, and
+configuration at launch. Use an installer ISO when testing the installation
+process itself, or when no suitable cloud image and provisioning method are
+available. A cloud image is a preference, not a reason to change a requested VM
+into a container.
 
 ## Cleanup rules
 
