@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610070001-git
+##@Version           :  202610121002-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,8 +9,8 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 20:00 EDT
 # @@File             :  no-read-gitcommit.sh
-# @@Description      :  PreToolUse Read+Grep+Bash hook: blocks reading the commit wrapper script (Read/Grep tools, cat/less/head/etc via Bash), a previously prose-only rule.
-# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
+# @@Description      :  PreToolUse Bash hook: blocks shell commands that display the commit wrapper script.
+# @@Changelog        :  20261012: Allow explicit Read/Grep inspection for user-requested gitcommit changes.
 # @@TODO             :  None
 # @@Other            :  Resolves the symlink target so both paths are blocked; the zone's raw-git pre-authorization never covers the commit wrapper itself.
 # @@Resource         :  AGENTS.md - Commit Workflow, home/hooks/drift-guard-read.sh
@@ -20,7 +20,8 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610070003-git"
+# shellcheck disable=SC2034
+VERSION="202610121002-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -223,26 +224,11 @@ def is_gitcommit_path(path):
 
 
 msg = (
-    "BLOCKED: reading the gitcommit script file is forbidden.\n\n"
-    "AGENTS.md's Commit Workflow: \"Never read the gitcommit script file -\n"
-    "it is pre-approved and trusted.\" It is invoked, never inspected."
+    "BLOCKED: reading the gitcommit script through Bash is disabled.\n\n"
+    "Use the Read tool for an explicitly user-requested script change. For\n"
+    "routine repository work, invoke gitcommit as documented without\n"
+    "inspecting its implementation."
 )
-
-if tool_name == "Read":
-    file_path = payload.get("tool_input", {}).get("file_path", "") or ""
-    if is_gitcommit_path(file_path):
-        print(msg)
-        sys.stderr.write(msg + "\n")
-        sys.exit(2)
-    sys.exit(0)
-
-if tool_name == "Grep":
-    grep_path = payload.get("tool_input", {}).get("path", "") or ""
-    if is_gitcommit_path(grep_path):
-        print(msg)
-        sys.stderr.write(msg + "\n")
-        sys.exit(2)
-    sys.exit(0)
 
 if tool_name != "Bash":
     sys.exit(0)

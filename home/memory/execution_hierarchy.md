@@ -1,23 +1,32 @@
 ---
 name: Execution hierarchy
-description: QEMU/KVM > Incus > Docker > host; tier purpose, image selection, cleanup rules
+description: Existing hardware-virtualized VMs > libvirt/KVM > VirtualBox/other hypervisors > QEMU/KVM > Incus VM > Incus container > Docker > host; tier purpose, image selection, cleanup rules
 type: user
 ---
 
-Never run anything directly on the host unless no lower option works. Always use the lowest viable level:
+Never run anything directly on the host unless no isolated option works. When the user requests or prefers a VM, first check for a suitable existing VM, then use an available hardware-virtualization backend. Incus and Docker containers are not VMs and must not be presented as VM isolation.
 
-1. **QEMU/KVM** — full OS isolation; required when the test needs a real kernel, firmware, or hardware emulation
-2. **Incus** — distro-level tests that require systemd or a full init system; preferred for service installs and OS config testing
-3. **Docker** — build, unit test, and integration work that does not need systemd; always use the official alpine variant for the stack
-4. **Host** — last resort only (e.g. USB device access with no passthrough, host socket that cannot be forwarded)
+Choose the highest suitable available tier:
+
+1. **Existing hardware-virtualized VM** — reuse a suitable VM already available to the task.
+2. **Libvirt/KVM** — preferred for creating a hardware-accelerated VM when available.
+3. **VirtualBox or another available hardware hypervisor** — use hardware acceleration when supported.
+4. **QEMU/KVM** — use directly when available and hardware acceleration is supported.
+5. **Incus VM (`incus launch ... --vm`)** — valid only when the host and Incus configuration support QEMU hardware virtualization; prefer the hardware-virtualized options above when available.
+6. **Incus system container** — distro-level work that needs systemd or a full init system, only when a VM was not requested or when the user accepts this fallback.
+7. **Docker** — builds, unit tests, and integration work that does not need systemd, only when a VM was not requested or when the user accepts this fallback. Use the official Alpine variant for the stack.
+8. **Host** — last resort only (e.g. USB device access with no passthrough, host socket that cannot be forwarded).
+
+Check which VM backends are installed and usable rather than assuming one is available. If a VM was requested and no suitable VM backend works, report that and offer a container as a separate fallback; never silently treat an Incus or Docker container as a VM. Do not install or reconfigure a host hypervisor just to satisfy the preference.
 
 ## Image selection by tier
 
 | Tier | Image to use | When |
 |------|-------------|------|
 | Docker | Maintained toolchain image: `casjaysdev/go:latest`, `casjaysdev/rust:latest`, `casjaysdev/android:latest`, `node:alpine`, `python:alpine`, etc. | Build, test, debug — never debian/ubuntu based |
-| Incus | Distro image matching the target OS | systemd, service installs, OS config, distro compatibility |
-| QEMU/KVM | Full OS image matching the target OS | Kernel-level, firmware, hardware emulation, full install testing |
+| Incus container | Distro image matching the target OS | systemd, service installs, OS config, distro compatibility when a VM is not requested |
+| Incus VM | Full OS image matching the target OS | VM testing when Incus QEMU hardware virtualization is available |
+| Libvirt/KVM, VirtualBox, QEMU/KVM, or another hardware hypervisor | Full OS image matching the target OS | VM testing; prefer hardware acceleration |
 
 ## Cleanup rules
 
@@ -115,7 +124,7 @@ If a container must remain running after the session (e.g. a dev environment sta
 
 **Why:** install scripts modify OS config and install system services — running them on the host trashes the developer's machine.
 
-**Scripts that seem to require host access** (`install-to-device.sh`, `dev-shell.sh`, some `./tests/*`): still check whether a VM or container can satisfy the requirement (USB passthrough, socket forwarding, Docker-in-Docker) before falling back to host.
+**Scripts that seem to require host access** (`install-to-device.sh`, `dev-shell.sh`, some `./tests/*`): still check whether a VM or container can satisfy the requirement (USB passthrough, socket forwarding, Docker-in-Docker) before falling back to host. A container may satisfy a task that needs isolation, but it does not satisfy an explicit VM requirement.
 
 ---
 

@@ -71,8 +71,9 @@ primary agent should run after integrating their work.
 
 ## Build and execution
 
-Follow `~/.codex/memory/execution_hierarchy.md`; prefer VM/container builds
-where the project requires them. Keep commands bounded, clean up only
+Follow `~/.codex/memory/execution_hierarchy.md`; prefer an available
+hardware-virtualized VM when the user requests or prefers a VM. Incus and
+Docker containers do not count as VMs. Keep commands bounded, clean up only
 resources created for the task, and never perform broad host cleanup.
 Language-specific rules are in `~/.codex/memory/{language}_conventions.md`.
 
@@ -98,8 +99,9 @@ agent instead of running it. See
 
 Only the primary agent handles commit preparation, gate execution, commits,
 and pushes. Subagents may not perform any part of that workflow. Use
-`gitcommit --dir {project_dir} all` as the only commit/push path. Never
-read the `gitcommit` executable itself. Before committing, follow
+`gitcommit --dir {project_dir} all` as the only commit/push path. Do not
+inspect the `gitcommit` executable unless the user explicitly asks to fix,
+enhance, or otherwise modify it. Before committing, follow
 `~/.codex/memory/gitcommit_conventions.md`, ensure the test and lint gates
 passed, and document every changed file in `.git/COMMIT_MESS`. After a push,
 check the project's CI run and resolve failures before reporting completion.

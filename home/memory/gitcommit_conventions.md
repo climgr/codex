@@ -16,7 +16,7 @@ Never hardcode the path to `gitcommit` (e.g., `/usr/local/bin/gitcommit`).
 
 ---
 
-**Never read the `gitcommit` script itself.** It is a pre-approved, trusted command — invoke it as documented; never inspect the script file before use. Reading it is a speculative read violation. The invocation contract is fully specified in the Commit Workflow section of `~/.codex/AGENTS.md`; the script internals are irrelevant.
+**Do not inspect the `gitcommit` script unless the user explicitly asks to fix, enhance, or otherwise modify it.** For normal repository work, invoke it as documented without inspecting its implementation. When the user explicitly requests a change to the script, read and modify it as needed to complete that request; the request itself authorizes the inspection.
 
 ---
 
