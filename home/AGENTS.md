@@ -78,9 +78,11 @@ resources created for the task, and never perform broad host cleanup.
 Language-specific rules are in `~/.codex/memory/{language}_conventions.md`.
 
 VM provisioning is coordinated by the primary agent. Never let each subagent
-create its own VM by default. Keep the total of AI-created VMs running or
-starting on the host to **at most 4**; provision sequentially when necessary,
-and reuse an existing suitable VM. Stop and report before exceeding this cap.
+create its own VM by default. Keep the total of AI-created VMs for the current
+project to **at most 4**, identified by the `{project_name}-XXXX` prefix,
+across all Codex sessions and agents; VMs from other projects do not count.
+Count VMs that are starting as well as running, and reuse a suitable existing
+VM or provision sequentially before exceeding this cap.
 
 ## Subagents
 

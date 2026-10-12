@@ -62,14 +62,15 @@ not.
 Subagents also must not spawn or coordinate other agents. The primary agent
 owns delegation and coordinates all work across children.
 
-## Shared Host Resource Coordination
+## VM Coordination
 
-The primary agent owns provisioning of shared host resources, including VMs.
-Subagents must not create one VM per agent or independently launch VM fleets;
-they must reuse a suitable VM provided by the primary agent. Follow the
-host-wide four-VM maximum in `execution_hierarchy.md`, counting VMs that are
-still starting as well as running. Broad test requests do not raise this cap:
-reuse or rebuild the same VMs in sequential batches.
+The primary agent owns provisioning of VMs. Subagents must not create one VM
+per agent or independently launch VM fleets; they must reuse a suitable VM
+provided by the primary agent. Follow the per-project four-VM maximum in
+`execution_hierarchy.md`, counting matching `{project_name}-XXXX` VMs that are
+still starting as well as running. VMs from other projects do not count toward
+this limit. Broad test requests do not raise this cap: reuse or rebuild the
+same VMs in sequential batches.
 
 ## "No Edits" in a Prompt Is Not Enforcement
 
