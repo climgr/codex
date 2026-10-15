@@ -42,6 +42,7 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 
 
@@ -206,6 +207,30 @@ for _obj in (payload, payload.get("tool_input") or {}, payload.get("tool_respons
 
 tool_name = payload.get("tool_name", "")
 
+
+def is_gitcommit_source_repo():
+    """Allow wrapper inspection only from the repository that maintains this hook."""
+    cwd = payload.get("cwd") or os.getcwd()
+    try:
+        root = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+            check=True, capture_output=True, text=True, timeout=2,
+        ).stdout.strip()
+        remote = subprocess.run(
+            ["git", "-C", root, "remote", "get-url", "origin"],
+            check=True, capture_output=True, text=True, timeout=2,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    normalized = remote.removesuffix(".git").rstrip("/").lower()
+    return normalized in {
+        "https://github.com/climgr/codex",
+        "http://github.com/climgr/codex",
+        "git@github.com:climgr/codex",
+        "ssh://git@github.com/climgr/codex",
+    }
+
 # gitcommit_conventions.md:7 forbids hardcoding the gitcommit path (e.g.
 # /usr/local/bin/gitcommit) verbatim - it may live in ~/.local/bin,
 # /usr/bin, or elsewhere depending on the machine, and "it's always in
@@ -235,6 +260,9 @@ if tool_name != "Bash":
 
 cmd = payload.get("tool_input", {}).get("command", "")
 if not cmd or not re.search(r"gitcommit", cmd):
+    sys.exit(0)
+
+if is_gitcommit_source_repo():
     sys.exit(0)
 
 # Display/pager/editor verbs only — matches AI.md's "cat/less/head/etc."

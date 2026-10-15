@@ -18,6 +18,8 @@ Never hardcode the path to `gitcommit` (e.g., `/usr/local/bin/gitcommit`).
 
 **Do not inspect the `gitcommit` script unless the user explicitly asks to fix, enhance, or otherwise modify it.** For normal repository work, invoke it as documented without inspecting its implementation. When the user explicitly requests a change to the script, read and modify it as needed to complete that request; the request itself authorizes the inspection.
 
+**Source repository exception:** while working in the `climgr/codex` source repository, the `no-read-gitcommit.sh` hook allows inspection of the wrapper so its maintained behavior can be changed. This exception is scoped to that repository; work in other projects still follows the explicit-request rule above.
+
 ---
 
 **Never use bare `@` in a commit message body.** Any `@username` in a commit message body creates a GitHub contributor notification and links the handle — even if the intent is just to reference a name. Only use `@username` when intentionally crediting a real contributor. Otherwise write the name without `@`, or wrap it in backticks to prevent GitHub from parsing it as a mention.
