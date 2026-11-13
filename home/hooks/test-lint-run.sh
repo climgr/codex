@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610110001-git
+##@Version           :  202611120001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,7 +9,8 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Friday, October 2, 2026 00:01 EDT
 # @@File             :  test-lint-run.sh
-# @@Description      :  Runs a test or lint command, records its completed status, and emits a gate result sentinel.
+# @@Description      :  Runs a recognized test or lint command, records its completed status, and emits a gate result sentinel.
+# @@Changelog        :  20261112: Classify supported commands inside Docker/Podman, Incus/LXC exec, and SSH VM sessions.
 # @@Changelog        :  20261011: Explain gate type mismatches and unrecognized commands.
 # @@Changelog        :  20261009: Record gate success before returning, including commands polled by session ID.
 # @@TODO             :  None
@@ -21,7 +22,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610110001-git"
+VERSION="202611120001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 
@@ -56,31 +57,15 @@ case "$CODEX_GATE_KIND" in
     ;;
 esac
 
-# Only known test and lint command prefixes may produce a gate marker. This
-# prevents a successful `echo "make test"` or similar from satisfying a gate.
+# Only recognized commands, including commands executed inside supported
+# containers or over SSH to a VM, may produce gate markers.
+CODEX_GATE_RUNNER_PATH="$(realpath -- "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")"
+CODEX_GATE_CLASSIFIER="${CODEX_GATE_RUNNER_PATH%/*}/classify-test-lint.py"
+CODEX_GATE_CLASSIFIED="$(python3 "$CODEX_GATE_CLASSIFIER" "$@" 2>/dev/null)" || CODEX_GATE_CLASSIFIED=""
 CODEX_GATE_TEST=0
 CODEX_GATE_LINT=0
-case "${1-}:${2-}:${3-}" in
-  make:test:* | make:check:* | go:test:* | cargo:test:* | pytest:* | npm:test:* | npm:run:test:* \
-    | jq:empty:* | gradle:test:* | ./gradlew:test:* | mvn:test:* | rspec:* \
-    | bundle:exec:rspec* | rake:test:* | phpunit:* | composer:test:* \
-    | swift:test:* | flutter:test:* | dart:test:* | ctest:* | dotnet:test:* \
-    | mix:test:* | bash:-n:* | sh:-n:*) CODEX_GATE_TEST=1 ;;
-esac
-case "${1-}:${2-}:${3-}" in
-  shellcheck:*:* | golangci-lint:run:* | go:vet:* | cargo:clippy:* \
-    | script-lint:*:* | go-lint:*:* | rust-lint:*:* | npm:run:lint:* | npx:eslint:* \
-    | ruff:check:* | ruff:format:--check* | make:check:* | taplo:lint:* \
-    | lintian:*:* | rpmlint:*:* | namcap:*:* | apkbuild-lint:*:* \
-    | brew:audit:* | brew:style:* | snapcraft:lint:* | flatpak-builder-lint:*:* \
-    | appimagelint:*:* | nix:flake:check* | statix:*:* | gradle:lint:* \
-    | gradle:ktlintCheck:* | gradle:detekt:* | ./gradlew:lint:* \
-    | ./gradlew:ktlintCheck:* | ./gradlew:detekt:* | mvn:checkstyle:check* \
-    | mvn:spotbugs:check* | rubocop:*:* | phpcs:*:* | php-cs-fixer:*:* \
-    | phpstan:*:* | swiftlint:*:* | flutter:analyze:* | dart:analyze:* \
-    | clang-tidy:*:* | cppcheck:*:* | dotnet:format:--verify-no-changes* \
-    | mix:credo:* | mix:format:--check-formatted*) CODEX_GATE_LINT=1 ;;
-esac
+[[ " $CODEX_GATE_CLASSIFIED " == *" test "* ]] && CODEX_GATE_TEST=1
+[[ " $CODEX_GATE_CLASSIFIED " == *" lint "* ]] && CODEX_GATE_LINT=1
 
 # Preserve a shell-safe display of the request so every rejection explains
 # which gate command was checked without executing it.
@@ -131,7 +116,6 @@ trap 'rm -f -- "$CODEX_GATE_OUTPUT"' EXIT
 CODEX_GATE_STATUS=$?
 if [ "$CODEX_GATE_STATUS" -eq 0 ]; then
   CODEX_GATE_SESSION_ID="${CODEX_SESSION_ID:-}"
-  CODEX_GATE_RUNNER_PATH="$(realpath -- "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")"
   CODEX_GATE_MARKER_SCRIPT="${CODEX_GATE_RUNNER_PATH%/*}/test-lint-mark.sh"
   if [[ ! "$CODEX_GATE_SESSION_ID" =~ ^[A-Za-z0-9._-]+$ ]] || ! command -v jq >/dev/null 2>&1; then
     printf 'Unable to record the test/lint gate: this Codex session lacks a valid session id or jq.\n' >&2

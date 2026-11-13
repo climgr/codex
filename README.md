@@ -9,6 +9,7 @@ Codex user configuration maintained by the `climgr` organization. `install.sh` d
 | `home/AGENTS.md` | Global Codex instructions |
 | `home/config.toml` | User-level Codex settings |
 | `home/hooks.json`, `home/hooks/` | Lifecycle hook wiring and scripts |
+| `home/hooks/classify-test-lint.py` | Classifies test/lint commands inside containers and over SSH to VMs |
 | `home/agents/` | Custom agent TOML definitions |
 | `home/skills/` | Codex skills installed into `~/.agents/skills/` |
 | `home/memory/` | Convention and reference files |

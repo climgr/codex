@@ -65,6 +65,11 @@ was not performed. Do not rerun flaky failures without a specific hypothesis.
 Run test and direct lint commands as
 `bash "$HOME/.codex/hooks/test-lint-run.sh" {test|lint|both} -- <command>` so
 the wrapper can record the child command's actual exit status for this session.
+The gate recognizes supported test and lint commands run directly, through
+Docker/Podman, through `incus exec`/`lxc exec`, or over SSH to a VM. For
+example, `docker run --rm image make test` and
+`incus exec codex-test -- cargo test` are classified by the command inside
+the isolated environment.
 The PostToolUse result marker remains a fallback for commands returned directly.
 Use direct linters in the primary session; lint-agent results do not satisfy
 the commit gate.
