@@ -43,7 +43,7 @@ that path IS `{project_dir}` for this session.
 
 `SessionStart` hooks (including `session-start.sh`'s project_dir context
 injection) are documented to fire on `/clear` but do not, due to a confirmed
-upstream Codex bug (`Codex SessionStart behavior`, closed
+upstream Codex bug (`anthropics/claude-code#34072`, closed
 not-planned). This isn't a gap in practice: `{project_dir}` is already
 self-derived from `git rev-parse --show-toplevel`, falling back to `$PWD`
 when not in a git repo, not from the hook's injected text — so re-run the

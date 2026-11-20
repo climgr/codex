@@ -164,7 +164,7 @@ strategy:
   # never cancel other matrix cells when one fails
   fail-fast: false
   matrix:
-    os: [ubuntu-latest]
+    os: [ubuntu-26.04]
     # test current + prior stable release
     go: ["stable", "oldstable"]
 ```
@@ -178,6 +178,7 @@ strategy:
 - Secrets via `secrets.{NAME}` — never hardcoded, never logged
 - `GITHUB_TOKEN` is automatic — use it for `ghcr.io` pushes and GitHub API calls
 - Cross-repo shared secrets (Docker Hub, cloud creds) defined at the org level
+- Secret scanning (truffleHog scope, results, exclude file, allowlist): see `cicd_conventions.md` "Secret Scanning Per Provider"
 - Never print secrets in workflow logs — a secret that appears in a step name or `echo` is immediately compromised; use `::add-mask::${{ secrets.FOO }}` when a secret must be referenced dynamically
 
 ---

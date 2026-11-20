@@ -20,7 +20,7 @@ ${TMPDIR:-/tmp}/{project_org}/{internal_name}-XXXXXX/
 - `{project_org}/` — organization prefix so dirs are identifiable and cleanable by project
 - `{internal_name}-XXXXXX` — project name + random suffix from `mktemp`
 
-`{internal_name}` is used (not `{project_name}`) because it is frozen and never changes even if the project renames.
+`{internal_name}` is used (not `{project_name}`) because it is stable across ordinary project renames.
 
 ## FORBIDDEN
 
@@ -132,19 +132,6 @@ ls -la "${TMPDIR:-/tmp}/${PROJECT_ORG}/"
 # Remove entire org temp tree (only when certain nothing else uses it)
 [ -n "${PROJECT_ORG}" ] && rm -rf "${TMPDIR:-/tmp}/${PROJECT_ORG}/"
 ```
-
-When cleanup uses a saved path variable, do not reject it solely because the
-target is variable-based. Check that it is non-empty and still points inside
-the current project's temp namespace in the same command:
-
-```bash
-[[ -n "${TEMP_DIR:-}" && -d "$TEMP_DIR" && ! -L "$TEMP_DIR" && \
-  "$TEMP_DIR" == "${TMPDIR:-/tmp}/${PROJECT_ORG}/${INTERNAL_NAME}-"* ]] && \
-  rm -rf -- "$TEMP_DIR"
-```
-
-Never run `rm -rf "$TEMP_DIR"` without this scope check; an unset or changed
-variable can resolve to an unsafe target.
 
 ## AI-Specific Rules
 

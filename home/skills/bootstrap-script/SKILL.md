@@ -1,6 +1,6 @@
 ---
 name: bootstrap-script
-description: Bootstrap a new or existing script-only project. Creates the main script, .editorconfig, .shellcheckrc (not fish), and standard project files (AI.md, IDEA.md, AGENTS.md, .gitignore, README.md, LICENSE.md). No workflows, no toolchain, no Makefile. Auto-invoke when user asks to create/init a script project, install script, or setup script.
+description: Bootstrap a new or existing script-only project. Creates the main script, .editorconfig, .shellcheckrc (not fish), and standard project files (AI.md, IDEA.md, CLAUDE.md, .gitignore, README.md, LICENSE.md). No workflows, no toolchain, no Makefile. Auto-invoke when user asks to create/init a script project, install script, or setup script.
 ---
 
 # Bootstrap a Script Project

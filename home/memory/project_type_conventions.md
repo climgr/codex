@@ -20,7 +20,7 @@ Read `{project_dir}/IDEA.md ## Business logic` and `## Project description` to d
 | `tui` | terminal UI, interactive terminal, ncurses-style |
 | `cli` | command-line tool, one-shot invocation, scripting target |
 | `script-collection` | no compiled/interpreted-language build target (no `go.mod`/`Cargo.toml`/`package.json`/`pyproject.toml`/`build.gradle(.kts)`/`pom.xml`/`Gemfile`/`composer.json`/`Package.swift`/`pubspec.yaml`/`CMakeLists.txt`/`mix.exs`/`*.csproj`/`*.sln` at root); a set of standalone `bin/` shell scripts plus `install.sh`, typically with `completions/`, `man/`, `functions/`/`helpers/` |
-| `spec-collection` | root is entirely Markdown (spec/template/doc files consumed by AI tooling or humans) plus README.md/LICENSE.md/.gitignore; no source code directory at all — not even scripts; e.g. `climgr/codex`, `climgr/go`, `climgr/rust`, `climgr/android`, `climgr/docker`, `climgr/mgr` |
+| `spec-collection` | root is entirely Markdown (spec/template/doc files consumed by AI tooling or humans) plus README.md/LICENSE.md/.gitignore; no source code directory at all — not even scripts; e.g. `climgr/claude`, `climgr/go`, `climgr/rust`, `climgr/android`, `climgr/docker`, `climgr/mgr` |
 | `packaging` | distro/platform packaging — repo content is package build metadata (`debian/`, `{name}.spec`, `PKGBUILD`, `APKBUILD`, Homebrew formula, `snapcraft.yaml`, flatpak manifest, AppImage recipe, `flake.nix`) for software whose source is maintained elsewhere |
 | `library` | importable package/crate, no binary entrypoint |
 | `agent` / `worker` | background job processor, queue consumer, scheduled task |
@@ -166,7 +166,7 @@ Applies to: repos that are a collection of standalone bash/sh/zsh/fish scripts w
 - **No language-specific build/test tooling** (`go test`, `cargo test`, `npm test`) — there is no compiled/interpreted-language runtime to invoke it against.
 
 ### What replaces the standard gates
-- **Test/lint gate:** `bash -n bin/{script}` (syntax check) plus ShellCheck on `bin/{script}`, run by the primary session through the gate wrapper — this is this project type's equivalent of `make test` in the Commit Workflow pre-commit sequence.
+- **Test/lint gate:** `bash -n bin/{script}` (syntax check) plus the `script-lint` Agent on `bin/{script}` — spawn it via the Agent tool, it is not a shell command and has no CLI binary — this is this project type's equivalent of `make test` in the Commit Workflow pre-commit sequence.
 - **Documentation:** the Documentation Triple Sync (`__help()` output, man page, shell completions — see the `doc-sync` agent) replaces language-doc-generation (`godoc`/`cargo doc`) as the doc-completeness requirement.
 - Full per-script code-style rules: `~/.codex/memory/script_conventions.md`.
 
@@ -176,7 +176,7 @@ Applies to: repos that are a collection of standalone bash/sh/zsh/fish scripts w
 
 Applies to: repos whose entire content is Markdown specification/template/documentation files — no source code, not even scripts. Distinct from `script-collection`: there is nothing to lint or syntax-check because there is no code, only prose/spec files consumed by AI tooling (e.g. copied verbatim into a generated project as its `AI.md`) or read by humans. Example: the `climgr` template repos (`go`, `rust`, `android`, `docker`, `mgr`) — each root holds only `.md` spec files plus `README.md`/`LICENSE.md`/`.gitignore`.
 
-**Simple rule: if there are scripts, lint; if there are no scripts, don't.** A repo with any `*.sh`/`*.bash` file anywhere in its tree beyond a bare deploy-only `install.sh` (see below) is not `spec-collection` — it is `script-collection` (or a mix) and needs the test/lint gate. `climgr/codex` is the disqualifying example: it ships dozens of scripts under `home/hooks/`, so it is **not** `spec-collection` despite being template/spec-heavy — `bash -n` plus ShellCheck apply to every `*.sh` in it.
+**Simple rule: if there are scripts, lint; if there are no scripts, don't.** A repo with any `*.sh`/`*.bash` file anywhere in its tree beyond a bare deploy-only `install.sh` (see below) is not `spec-collection` — it is `script-collection` (or a mix) and needs the test/lint gate. `climgr/claude` is the disqualifying example: it ships dozens of scripts under `home/hooks/`, so it is **not** `spec-collection` despite being template/spec-heavy — `bash -n` plus the `script-lint` Agent apply to every `*.sh` in it.
 
 ### Detection signals
 - Root directory contains only `.md` files plus standard repo metadata (`README.md`, `LICENSE.md`, `.gitignore`, `.gitattributes`) — no `src/`, `bin/`, `cmd/`, `lib/`, or any language manifest (`go.mod`, `Cargo.toml`, `package.json`, `pyproject.toml`, `build.gradle(.kts)`, `pom.xml`, `Gemfile`, `composer.json`, `Package.swift`, `pubspec.yaml`, `CMakeLists.txt`, `mix.exs`, `*.csproj`/`*.sln`).
@@ -190,7 +190,7 @@ Applies to: repos whose entire content is Markdown specification/template/docume
 
 ### What replaces the standard gates
 - **Verification:** re-read the edited file(s) and diff against the intended content per the Self-Validation rule — the "test" for a spec repo is that the prose is correct and internally consistent (cross-references resolve, terminology matches across sibling files), not that a command exits 0.
-- **Consistency sweep:** when a rule changes in one file that has sibling copies (e.g. a `home/**` rule that also appears in `{lang}/AI.md` templates), grep every sibling for the same pattern and update them together — see `~/Projects/github/climgr/codex/AI.md § Part 9` for the climgr-specific alignment rule.
+- **Consistency sweep:** when a rule changes in one file that has sibling copies (e.g. a `home/**` rule that also appears in `{lang}/AI.md` templates), grep every sibling for the same pattern and update them together — see `~/Projects/github/climgr/claude/AI.md § Part 9` for the climgr-specific alignment rule.
 - If `install.sh` exists, it still follows `~/.codex/memory/script_conventions.md` for its own code style, but that does not make the surrounding repo a `script-collection`.
 
 ---
@@ -302,7 +302,7 @@ gated — never add a format the user didn't ask for.
   change that provably cannot affect the built package (README, comments) may
   gate on lint alone.
 - **Lint gate:** the per-format linters above. Any helper scripts the repo
-  ships (`*.sh`) still get `bash -n` plus ShellCheck on top —
+  ships (`*.sh`) still get `bash -n` plus the `script-lint` Agent on top —
   the packaging type covers the package metadata, not a lint exemption for
   its scripts.
 

@@ -6,6 +6,32 @@ type: user
 
 # Firewall Conventions
 
+## Scripts Never Touch the Firewall Unless the Spec Says So
+
+No script, hook, install step, or Makefile target may create, modify, enable,
+disable, or reload any firewall rule or backend (`firewall-cmd`, `ufw`,
+`iptables`, `nftables`, or equivalent) unless the project's own `IDEA.md`,
+`SPEC.md`, or `AI.md` explicitly requires it for that project. Absent an
+explicit requirement in one of those three files, firewall configuration is
+out of scope — full stop, not a judgment call.
+
+**Why:** firewall state is host-wide, shared with everything else running on
+the machine, and a wrong rule can cut off access or expose a service. This is
+the system admin's decision to make, not something a script should do as a
+side effect of unrelated work — "it seemed like the kind of thing the project
+would want" is never sufficient justification.
+
+- Encountering a reason to touch the firewall while doing something else
+  (a port conflict, a service that "should" be blocked) is a finding to
+  report to the user or log in `TODO.AI.md`, never something to act on inline
+- If `IDEA.md`/`SPEC.md`/`AI.md` does explicitly call for firewall rules,
+  implement exactly what's specified there — the rest of this file (backend
+  detection, default posture, fail2ban, verification) governs how, not
+  whether
+- This applies regardless of how confident the firewall change looks or how
+  small the rule seems — there is no severity threshold that makes an
+  unrequested firewall change acceptable
+
 ## Backend Detection — firewalld vs ufw
 
 Never hardcode one backend. Detect which is active on the target host before writing or changing any rule:

@@ -1,6 +1,6 @@
 ---
 name: script-lint
-description: Run ShellCheck on Bash/sh scripts in the current project from the primary session.
+description: Lint bash/sh scripts in the current project for CasjaysDev convention violations. Invokes the script-lint agent on the project in the current working directory.
 ---
 
 Run ShellCheck directly on the target scripts through the test/lint gate wrapper:

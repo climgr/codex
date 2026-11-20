@@ -12,7 +12,7 @@ type: user
 
 All relative file references (`AI.md`, `./src`, `./`) resolve from `$PWD`. Absolute paths (`/…`, `~…`) are taken as-is.
 
-**Project instructions are optional:** follow project instruction files that exist, including `AGENTS.md`, `CLAUDE.md`, `AI.md`, or `SPEC.md`. Projects are not required to add `AI.md`, `SPEC.md`, `IDEA.md`, or any other standard file unless they use the corresponding climgr template workflow. Project instructions take precedence over global instructions where applicable.
+**Project files override global:** if `{project_dir}/AGENTS.md` or `{project_dir}/AI.md` exists, it is the source of truth for that session and supersedes any global equivalent.
 
 **Stay inside `{project_dir}`:** all writes and edits must target paths within `{project_dir}` unless the user explicitly names an external path. Never reach outside the project tree (e.g. `~/.codex/`, `/etc/`, another repo) on own initiative, even when a file there "should" be updated as a side effect of the task.
 
@@ -20,20 +20,16 @@ All relative file references (`AI.md`, `./src`, `./`) resolve from `$PWD`. Absol
 
 ## File roles
 
-The conventions below describe the climgr template workflow. Projects that do
-not use that workflow may omit these files and follow their existing conventions.
-
 | File | Role | Mutable during work? |
 |------|------|----------------------|
 | **AI.md** | THE HOW — implementation spec, readonly copy of the type template (go/ or rust/). Never modified after initial copy. Placeholders resolve from IDEA.md at runtime. When the template is updated in climgr, re-copy this file — no merge needed because it was never touched. | No |
 | **SPEC.md** | Project-specific rule overrides — the only place where project rules may contradict the template or global conventions. Created at project setup (may be empty); content added only when a rule must actively differ. SPEC.md wins over AI.md which wins over global AGENTS.md. | Yes — only when adding or changing rule overrides |
-| **IDEA.md** | THE WHAT — project intent, goal, and constraints only. Never the HOW. Three required sections (see below). | Yes |
+| **IDEA.md** | THE WHAT — project intent, goal, and constraints only. Never the HOW. Three required sections (see below). Its non-goals only scope optional capabilities; they never relax AI.md baseline rules. | Yes |
 | **TODO.AI.md** | AI-owned task list. Required when working on more than 2 items. Completed items are REMOVED (not marked done and left). | Yes |
 | **TODO.md** | Human-owned task list; AI **must** mark done when completed (leaving unmarked is misleading), never delete/empty entries | Limited |
 | **PLAN.AI.md** | AI-owned implementation plan — delete when the work it describes is fully committed | Yes |
 | **PLAN.md** | Human-owned plan; AI **must** mark done when completed, never delete entries or rewrite wholesale | Limited |
-| **AGENTS.md** | Short loader pointing at AI.md and IDEA.md. No project-specific spec or rule content. | No |
-| **CLAUDE.md** | Optional project instructions for Claude-compatible tools. It may exist independently of the climgr template files. | Yes |
+| **AGENTS.md** | Short loader pointing at AI.md and IDEA.md. No project-specific spec or rule content. Mirrored byte-for-byte into `AGENTS.md` (a real file copy, never a symlink), kept in sync. | No |
 
 ## Rule hierarchy (highest precedence first)
 
@@ -46,7 +42,8 @@ Global AGENTS.md ← baseline for all projects
 SPEC.md > AI.md > global AGENTS.md. When files conflict, fix the lower-precedence file.
 
 **If SPEC.md and AI.md conflict, SPEC.md wins — that is its purpose.**
-**If AI.md and IDEA.md conflict, AI.md wins. Fix IDEA.md.**
+**No SPEC.md (or an empty one): AI.md alone is the authority.** SPEC.md is never created just to log an AI.md defect.
+**If AI.md and IDEA.md conflict, AI.md wins. Fix IDEA.md.** Never edit AI.md to match IDEA.md. If the product genuinely needs something AI.md forbids, STOP and ask the user — the answer is a SPEC.md rule override, and IDEA.md then states only the product-level behavior.
 
 **The WHAT/HOW boundary is strict:**
 - IDEA.md answers: what is this project, what must it do, what must it never do, what must it be compatible with
@@ -55,9 +52,9 @@ SPEC.md > AI.md > global AGENTS.md. When files conflict, fix the lower-precedenc
 
 ### AI tool config files (Codex, Cursor, Windsurf, Aider, Copilot, Continue, etc.)
 
-All AI tool configs follow the same split: **team config is committed; personal overrides, history, and cache are gitignored.** The canonical example is `.codex/config.toml` (committed) vs `.codex/config.toml` (gitignored). The same rule applies to every other tool. The full per-tool table — what to commit and what to ignore — is in `~/.codex/memory/gitignore_conventions.md`.
+All AI tool configs follow the same split: **team config is committed; personal overrides, history, and cache are gitignored.** The Codex configuration uses `config.toml`; project-local Codex team guidance uses `AGENTS.md`. Personal overrides and runtime data are gitignored. The same rule applies to every other tool. The full per-tool table — what to commit and what to ignore — is in `~/.codex/memory/gitignore_conventions.md`.
 
-**Climgr template workflow only:** when explicitly bootstrapping a new project from a climgr template, use its prescribed `IDEA.md`, `AI.md`, and planning files. Existing or external projects are not considered incomplete merely because these optional files are absent; follow the files and conventions they already use.
+**New project detection:** if AI.md or IDEA.md is missing → new project. Plan first: create IDEA.md, copy the type template as AI.md, create an empty SPEC.md, create the AGENTS.md loader plus its AGENTS.md copy, write PLAN.AI.md and TODO.AI.md before touching code.
 
 **Partial IDEA.md:** if IDEA.md exists but is missing one or more of the three required sections, do not proceed with work — add the missing sections first. Ask the user for the missing information rather than guessing. A partial IDEA.md is treated as absent for the section(s) it is missing.
 
@@ -98,11 +95,11 @@ Placeholders in AI.md (e.g., `{project_name}`, `{PROJECT_ORG}`) are **reference 
 |-------------|------------|--------------|
 | `{project_name}` / `{PROJECT_NAME}` | Mutable (project may rename) | No |
 | `{project_org}` / `{PROJECT_ORG}` | Mutable | No |
-| `{internal_name}` / `{INTERNAL_NAME}` | **Frozen forever** at first-time setup | Yes — config/data/cache dirs, systemd units |
-| `{internal_org}` / `{INTERNAL_ORG}` | **Frozen forever** at first-time setup | Yes — Bundle IDs, package IDs |
+| `{internal_name}` / `{INTERNAL_NAME}` | **Stable** at first-time setup | Yes — config/data/cache dirs, systemd units |
+| `{internal_org}` / `{INTERNAL_ORG}` | **Stable** at first-time setup | Yes — Bundle IDs, package IDs |
 | `{plist_name}` | Derived, not stored: `io.github.{internal_org}.{internal_name}` | Yes |
 
-**internal_name and internal_org are set ONCE (initial value = project_name/project_org) and never edited after the project ships. On-disk identifiers never change even if the project renames.**
+**internal_name and internal_org are set once (initial value = project_name/project_org) and stay stable across ordinary renames. They reset only on an explicit user-directed org/repo rename (update IDEA.md, grep every consumer, migrate on-disk paths and units) or at a fork's first setup (reset to the fork's own `{project_name}`/`{project_org}`); a reset of a shipped project must migrate on-disk identifiers.**
 
 ## Template system
 
@@ -116,8 +113,8 @@ Placeholders in AI.md (e.g., `{project_name}`, `{PROJECT_ORG}`) are **reference 
 1. Check if IDEA.md exists with all required `## Project variables` entries
 2. If not: detect values from directory structure (`basename "$PWD"`, `basename "$(dirname "$PWD")"`) — never guess
 3. Confirm with user before writing
-4. Create/update IDEA.md; set internal_name = project_name and internal_org = project_org (frozen immediately)
-5. If an existing AGENTS.md has real project details, migrate them into IDEA.md; keep AGENTS.md as a short loader only
+4. Create/update IDEA.md; set internal_name = project_name and internal_org = project_org (stable immediately)
+5. If an existing AGENTS.md has real project details, migrate them into IDEA.md; keep AGENTS.md as a short loader only, and mirror the final root AGENTS.md into AGENTS.md as a real file copy
 
 ## Directory layout
 
@@ -135,17 +132,18 @@ Placeholders in AI.md (e.g., `{project_name}`, `{PROJECT_ORG}`) are **reference 
 ├── docker/
 │   ├── Dockerfile
 │   ├── Dockerfile.dev
-│   ├── docker-compose.yml
+│   ├── compose.yml
 │   └── rootfs/   # files ADDed into image, mirroring Linux FHS
 │       ├── etc/
 │       └── usr/local/bin/   # entrypoint.sh, etc.
 ├── AI.md
 ├── IDEA.md
 ├── AGENTS.md
+├── AGENTS.md     # real-file copy of AGENTS.md, never a symlink
 └── ...
 ```
 
-Temp, debug, and test output: `/tmp/{project_org}/{internal_name}-XXXXXX` — never committed. (`{internal_name}` is the frozen on-disk identifier, never `{project_name}` which may change.)
+Temp, debug, and test output: `/tmp/{project_org}/{internal_name}-XXXXXX` — never committed. (`{internal_name}` is the stable on-disk identifier, never `{project_name}` which may change.)
 
 ## Task dependency ordering
 
@@ -178,11 +176,11 @@ Wrong order:   1, 2, 3, a, b, c   (2 runs before its prerequisites)
 - When uncertain about a spec requirement: read that specific section — never guess, never rely on memory of a prior session
 
 **Hook-enforced, not just advisory:** this closes the gap where the schedule above was previously prose-only and easy to drift from.
-- **What's gated:** only projects with an `AI.md` or `SPEC.md` at their root are gated. `spec-guard.sh` (PreToolUse on Write/Edit) blocks edits to project files until `spec-guard-mark.sh` has recorded a successful direct Read/MCP read of that project's `AI.md` or `SPEC.md`, or an explicit Bash read command, this session. `AGENTS.md`, `CLAUDE.md`, and `IDEA.md` alone do not activate the spec guard.
+- **What's gated:** in any project with an `AI.md` or `SPEC.md` at its root, `spec-guard.sh` (PreToolUse on Write/Edit) blocks edits to project files until `spec-guard-mark.sh` (PostToolUse on Read) has recorded a Read of that project's `AI.md` or `SPEC.md` this session.
 - **What's exempt:** meta files (`AI.md`, `IDEA.md`, `SPEC.md`, `AGENTS.md`, `TODO(.AI).md`, `PLAN(.AI).md`, `.codex/*`, `.git/*`, etc.) — only implementation files are gated.
 - **When the marker clears:** `post-compact.sh` clears the marker on every compaction, so the spec must be re-read after each compact before edits resume.
 
-**Guard policy:** `AI.md` is the primary spec; `SPEC.md` supplies project-specific overrides and activates the guard by itself when present. If neither exists, the project is not gated, regardless of whether it has `AGENTS.md`, `CLAUDE.md`, `IDEA.md`, or another instruction file. The guard never requires creating missing project documentation.
+**Existence precedence in the gate:** `AI.md` (THE HOW, primary spec) > `AGENTS.md` (loader — its presence without `AI.md`/`SPEC.md` means a broken bootstrap, not an ungoverned project) > `SPEC.md` (rule overrides; gates on its own if `AI.md` is absent too). A project with none of the three is treated as ungoverned and never gated. A project with a `AGENTS.md` loader but no `AI.md`/`SPEC.md` is blocked with a distinct message telling the AI to bootstrap `AI.md` first — per this file's own `AGENTS.md` definition (a loader always implies a spec it points at), a loader with nothing to load is a broken setup, not a green light for unrestricted edits.
 
 ## Language-specific implementation rules
 

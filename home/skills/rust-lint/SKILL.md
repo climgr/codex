@@ -1,6 +1,6 @@
 ---
 name: rust-lint
-description: Run Clippy in the primary session for the requested Rust project.
+description: Lint the current Rust project for CasjaysDev convention violations. Invokes the rust-lint agent on the project in the current working directory.
 ---
 
 Run Clippy directly through the test/lint gate wrapper:

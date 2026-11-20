@@ -1,6 +1,6 @@
 ---
 name: go-lint
-description: Run the Go lint command in the primary session for the requested project.
+description: Lint the current Go project for CasjaysDev convention violations. Invokes the go-lint agent on the project in the current working directory.
 ---
 
 Run the Go linter directly through the test/lint gate wrapper, using

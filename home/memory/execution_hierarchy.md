@@ -1,64 +1,50 @@
 ---
 name: Execution hierarchy
-description: Existing hardware-virtualized VMs > libvirt/KVM > VirtualBox/other hypervisors > QEMU/KVM > Incus VM > Incus container > Docker > host; tier purpose, image selection, cleanup rules
+description: QEMU/KVM > Incus > Docker > host; tier purpose, image selection, cleanup rules
 type: user
 ---
 
-Never run anything directly on the host unless no isolated option works. When the user requests or prefers a VM, first check for a suitable existing VM, then use an available hardware-virtualization backend. Incus and Docker containers are not VMs and must not be presented as VM isolation.
+Never run anything directly on the host unless no lower option works. Always use the lowest viable level:
 
-Choose the highest suitable available tier:
-
-1. **Existing hardware-virtualized VM** — reuse a suitable VM already available to the task.
-2. **Libvirt/KVM** — preferred for creating a hardware-accelerated VM when available.
-3. **VirtualBox or another available hardware hypervisor** — use hardware acceleration when supported.
-4. **QEMU/KVM** — use directly when available and hardware acceleration is supported.
-5. **Incus VM (`incus launch ... --vm`)** — valid only when the host and Incus configuration support QEMU hardware virtualization; prefer the hardware-virtualized options above when available.
-6. **Incus system container** — distro-level work that needs systemd or a full init system, only when a VM was not requested or when the user accepts this fallback.
-7. **Docker** — builds, unit tests, and integration work that does not need systemd, only when a VM was not requested or when the user accepts this fallback. Use the official Alpine variant for the stack.
-8. **Host** — last resort only (e.g. USB device access with no passthrough, host socket that cannot be forwarded).
-
-Check which VM backends are installed and usable rather than assuming one is available. If a VM was requested and no suitable VM backend works, report that and offer a container as a separate fallback; never silently treat an Incus or Docker container as a VM. Do not install or reconfigure a host hypervisor just to satisfy the preference.
+1. **QEMU/KVM** — full OS isolation; required when the test needs a real kernel, firmware, or hardware emulation
+2. **Incus** — distro-level tests that require systemd or a full init system; preferred for service installs and OS config testing
+3. **Docker** — build, unit test, and integration work that does not need systemd; always use the official alpine variant for the stack
+4. **Host** — last resort only (e.g. USB device access with no passthrough, host socket that cannot be forwarded)
 
 ## Image selection by tier
 
 | Tier | Image to use | When |
 |------|-------------|------|
 | Docker | Maintained toolchain image: `casjaysdev/go:latest`, `casjaysdev/rust:latest`, `casjaysdev/android:latest`, `node:alpine`, `python:alpine`, etc. | Build, test, debug — never debian/ubuntu based |
-| Incus container | Distro image matching the target OS | systemd, service installs, OS config, distro compatibility when a VM is not requested |
-| Incus VM | Distro-maintained cloud image matching the target OS, when available; otherwise a full OS image | VM testing when Incus QEMU hardware virtualization is available |
-| Libvirt/KVM, VirtualBox, QEMU/KVM, or another hardware hypervisor | Distro-maintained cloud image matching the target OS, when available; otherwise a full OS image | VM testing; prefer hardware acceleration |
-
-For VM testing, prefer a cloud image that supports cloud-init so the guest can
-be provisioned with SSH keys, users, passwords when needed, packages, and
-configuration at launch. Use an installer ISO when testing the installation
-process itself, or when no suitable cloud image and provisioning method are
-available. A cloud image is a preference, not a reason to change a requested VM
-into a container.
+| Incus | Distro image matching the target OS | systemd, service installs, OS config, distro compatibility |
+| QEMU/KVM | Full OS image matching the target OS | Kernel-level, firmware, hardware emulation, full install testing |
 
 ## Cleanup rules
 
-The repository contains source and documentation. Keep VM/cloud images, seed
-files, overlay disks, SSH keys, logs, and other runtime artifacts outside the
-repository in a project-scoped OS temp directory, following
-`tempdir_conventions.md`. Create sensitive artifacts such as SSH keys in a
-mode-`0700` directory, and remove temporary artifacts when the task is done.
-
-- **Per-project VM cap:** Across all Codex sessions and agents working on the
-  same project, no more than **4 AI-created VMs for that project may be running
-  or starting at once**. Identify a project's VMs by its required
-  `{project_name}-XXXX` name prefix. VMs belonging to other projects do not
-  count toward this cap. A normal
-  test topology might use 1–2 server VMs and 2–3 client VMs, or up to 4 server
-  VMs. The primary agent coordinates VM creation; subagents must reuse a
-  suitable existing VM and must not each provision one for themselves. Check
-  host capacity before each launch. If broader coverage needs more test
-  instances, reuse the existing VMs or tear them down and rebuild them in
-  sequential batches; broad or exhaustive test requests never justify
-  exceeding that project's four-VM cap.
 - **Stop and remove immediately** — every container, VM, volume, network, and temp file must be torn down as soon as it is no longer needed. Never leave them running until session end.
 - **Track what you start** — note the name/ID of every container or VM before starting it; guarantee it appears in the cleanup step of the same task.
 - Only remove resources created by the current project — never `docker system prune` or broad sweeps.
 - Identify resources by name/label/prefix before removing; if uncertain, list and ask.
+
+## Instance budget
+
+A test needs a handful of instances, never one per distro or per package.
+The tier order above is unchanged; this caps how many of any tier a project
+may hold at once.
+
+- **At most 4 running at once per project** across VMs, Incus instances, and
+  detached containers (`CLAUDE_MAX_TEST_INSTANCES`, default 4). The shape is
+  1-2 servers plus 2-3 clients, never a matrix.
+- **Never one instance per distro, per package, or per variant.** Test a
+  representative one, or run variants one after another in a single reused
+  instance, tearing it down between variants.
+- **Never launch from a loop, `xargs`, `parallel`, or `seq`.** One instance
+  per command, so the cap is checked on every launch.
+- **Over the cap needs the user's say-so.** Ask before raising
+  `CLAUDE_MAX_TEST_INSTANCES`; never raise it to get a task done.
+- Mechanically enforced by `limit-test-instances.sh`, which counts instances
+  named `{project_name}-*` and fails open when no runtime answers. Subagent
+  fan-out is capped separately by `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` (4).
 
 ## Incus Instance Naming
 
@@ -140,7 +126,7 @@ If a container must remain running after the session (e.g. a dev environment sta
 
 **Why:** install scripts modify OS config and install system services — running them on the host trashes the developer's machine.
 
-**Scripts that seem to require host access** (`install-to-device.sh`, `dev-shell.sh`, some `./tests/*`): still check whether a VM or container can satisfy the requirement (USB passthrough, socket forwarding, Docker-in-Docker) before falling back to host. A container may satisfy a task that needs isolation, but it does not satisfy an explicit VM requirement.
+**Scripts that seem to require host access** (`install-to-device.sh`, `dev-shell.sh`, some `./tests/*`): still check whether a VM or container can satisfy the requirement (USB passthrough, socket forwarding, Docker-in-Docker) before falling back to host.
 
 ---
 
@@ -174,7 +160,7 @@ If the image is not in the registry, do not build it inline — stop and tell th
 - Bind to `172.17.0.1:{random_port}:{internal_port}` (Docker bridge gateway). Never `0.0.0.0`, `localhost`, or `127.0.0.x` — `0.0.0.0` exposes to all interfaces; `127.0.0.x` is host-only and excludes container-to-host reach.
 - Pick the port at runtime using `__random_port`. When the port must survive between runs — save it to the project's config file on first generation and reload on subsequent runs. Use `__save_credential` / `__load_credential` for `KEY=VALUE` stores.
 
-`docker-compose.yml` must work out of the box with zero configuration — every settable value has a sane default as a fallback so a missing or empty `.env` never breaks the stack. Users may override any value via `.env` or environment variables; if a value is unset or misconfigured the default takes over. Never require `.env` to exist, never fail silently on a bad value.
+`compose.yml` must work out of the box with zero configuration — every settable value has a sane default as a fallback so a missing or empty `.env` never breaks the stack. Users may override any value via `.env` or environment variables; if a value is unset or misconfigured the default takes over. Never require `.env` to exist, never fail silently on a bad value.
 
 ## Reverse Proxy
 

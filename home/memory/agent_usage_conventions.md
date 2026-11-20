@@ -1,6 +1,6 @@
 ---
 name: Agent usage conventions
-description: model routing, the hard no-subagent-commit rule, why a "no edits" instruction isn't enforcement, fork/subagent scope discipline, and preferring smaller scoped units of work
+description: model inheritance, the hard no-subagent-commit and no-subagent-gates rules, why a "no edits" instruction isn't enforcement, fork/subagent scope discipline, and preferring smaller scoped units of work
 type: user
 ---
 
@@ -30,12 +30,13 @@ This is a general principle, not a hard size threshold — use judgment on
 where a task naturally splits; don't fragment a single coupled change just to
 hit a smaller unit count.
 
-## Model Routing
+## Model Inheritance
 
-Route each task to the cheapest capable model — full tier table in
-`~/.codex/memory/model_routing.md`. Largest single lever on weekly-cap
-consumption. a fast model for trivial tasks: renames, format conversions,
-single-line edits, simple lookups, mechanical refactors.
+The user chooses the model, never this config. Every agent inherits the
+session's model: no `model:` in agent frontmatter, no per-spawn `model`
+override on the Agent tool, and no `model` or `fallbackModel` in
+`settings.json`, unless the user explicitly asks for one. Cost control comes
+from scoped units of work, not from picking a cheaper model for the user.
 
 ## Agents Never Commit
 
@@ -44,33 +45,18 @@ agents, edits and reports back only; only the main session reviews the full
 diff, writes `COMMIT_MESS`, and runs `gitcommit`. Mechanically enforced by
 `no-subagent-commit.sh`; not a judgment call an agent can override.
 
-## Primary Agent Owns Verification
+## Agents Never Run Tests, Builds, or Gates
 
-The primary agent is the top-level session agent that received the user's
-request. It alone runs project builds, tests, lint and formatting commands,
-type checks, benchmarks, and commit gates. This applies to every child agent
-at every delegation depth, including specialist and builder agents.
-
-Subagents may read, research, and edit only their explicitly assigned files.
-They must not execute validation commands or any part of a commit workflow,
-including staging, commit preparation, commit, or push. If they identify a
-useful check, they report the suggested command to the primary agent, which
-runs each needed check once after integrating delegated work. Static analysis
-by reading the assigned source is allowed; executing a linter or formatter is
-not.
-
-Subagents also must not spawn or coordinate other agents. The primary agent
-owns delegation and coordinates all work across children.
-
-## VM Coordination
-
-The primary agent owns provisioning of VMs. Subagents must not create one VM
-per agent or independently launch VM fleets; they must reuse a suitable VM
-provided by the primary agent. Follow the per-project four-VM maximum in
-`execution_hierarchy.md`, counting matching `{project_name}-XXXX` VMs that are
-still starting as well as running. VMs from other projects do not count toward
-this limit. Broad test requests do not raise this cap: reuse or rebuild the
-same VMs in sequential batches.
+**Hard rule.** A subagent never runs `make`, a test runner, the lint gate, or
+any build/commit gate. Self-Validation and the pre-commit gates belong to the
+main session, which runs them once after reviewing the whole diff — N agents
+each running the suite multiplies cost and races on shared caches, and an
+agent mid-task can report green or red on code that is only partly written.
+An agent edits the files in its scope, reports back what it changed, and
+names the gate commands the main session should run. This is a workflow rule for Codex agents. Codex has no equivalent pre-tool
+hook in this configuration that reliably distinguishes delegated agent tool
+calls, so the primary session must enforce it when assigning work. A prompt
+that tells an agent to "run the tests" does not override the rule.
 
 ## "No Edits" in a Prompt Is Not Enforcement
 

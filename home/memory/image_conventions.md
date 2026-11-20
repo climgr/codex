@@ -7,7 +7,7 @@ type: user
 ## Core Rules
 
 - **Always convert images before reading** — never load a raw screenshot or downloaded image directly. Convert to the smallest readable size first.
-- **Maximum size: 1280px on the longest side** — sufficient for Codex to inspect UI; larger is wasteful context.
+- **Maximum size: 1280px on the longest side** — sufficient for Codex to read text and inspect UI; larger is wasteful context.
 - **Target format: WebP** — best compression at quality. Fallback chain if the tool cannot produce WebP: JPEG → PNG → original as-is.
 - **Never embed originals** — if conversion is possible, only the converted file is read. The original stays in the tempdir.
 
