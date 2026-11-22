@@ -57,11 +57,11 @@ Write `{dir}/.git/COMMIT_MESS` from `git status --porcelain` + `git diff --stat`
 
 ## Who Commits
 
-**Only the main session ever runs `gitcommit` or raw `git commit`/`git push`.** Agents and subagents — of any type, including forked agents — never commit and never push, under any circumstance, even inside the Local System Management Zone's raw-git exception. An agent's job ends at editing files and reporting back; the main session is the only place that reviews the full diff, writes `COMMIT_MESS`, and invokes the commit. This is a hard rule, mechanically enforced by `no-subagent-commit.sh` (blocks the attempt) — it is not a preference an agent can reason its way around.
+**Only the main session runs `gitcommit`, raw `git commit`, or raw `git push`.** The only raw-push exception is the exact remote branch deletion form `git -C <dir> push --delete <remote> <branch>`; subagents never run it. Agents and subagents — including forked agents — never commit or push. The main session reviews the full diff, writes `COMMIT_MESS`, and invokes the commit. `no-subagent-commit.sh` blocks commit and push attempts made by subagents.
 
 ## Push Behavior
 
-Push is immediate and irreversible. To skip: `touch .no_push` (confirm with user first). If push fails offline: run `gitcommit --dir {dir} push` later — do NOT recreate `COMMIT_MESS`.
+Normal push is immediate and irreversible. To skip: `touch .no_push` (confirm with user first). Remote branch deletion is the narrow raw-push exception and must use `git -C {dir} push --delete <remote> <branch>`. If a gitcommit push fails offline: run `gitcommit --dir {dir} push` later — do NOT recreate `COMMIT_MESS`.
 
 ## Pre-Commit Gates
 

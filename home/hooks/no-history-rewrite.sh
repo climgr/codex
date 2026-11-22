@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610070001-git
+##@Version           :  202611220001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,18 +9,18 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Sunday, August 30, 2026 16:00 EDT
 # @@File             :  no-history-rewrite.sh
-# @@Description      :  PreToolUse hook: blocks destructive/history-rewriting git ops everywhere — a hook can only block, not interactively confirm.
-# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
+# @@Description      :  PreToolUse hook: blocks destructive/history-rewriting git ops, except explicit repository-scoped deletion of one remote branch.
+# @@Changelog        :  20261122: Allow explicit git -C remote branch deletion only.
 # @@TODO             :  None
 # @@Other            :  git rebase --abort/--continue/--skip are exempt — they resolve an already-started rebase rather than starting a new history rewrite.
-# @@Resource         :  local_system_zone.md - "Still hard - no exception, ever"
+# @@Resource         :  local_system_zone.md - explicit remote-delete exception
 # @@Terminal App     :  no
 # @@sudo/root        :  no
 # @@Template         :  shell/bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
+# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610070003-git"
+VERSION="202611220001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -318,7 +318,25 @@ def find_git_subcommand(rest):
     return None, -1
 
 
-def violation(clean_tokens):
+def is_explicit_remote_delete(clean_tokens, original_tokens):
+    # Remote branch deletion is allowed only in this exact, repository-scoped form.
+    if clean_tokens != original_tokens or len(clean_tokens) != 7:
+        return False
+    if clean_tokens[0] != "git" or clean_tokens[1] != "-C" or not clean_tokens[2]:
+        return False
+    if clean_tokens[3:5] != ["push", "--delete"]:
+        return False
+    remote, ref = clean_tokens[5:7]
+    if not remote or remote.startswith("-") or not ref or ref.startswith("-"):
+        return False
+    if any(char in ref for char in ":*?["):
+        return False
+    if ref.startswith("refs/") and not ref.startswith("refs/heads/"):
+        return False
+    return True
+
+
+def violation(clean_tokens, original_tokens):
     # Expects argv of one sub-command with wrapper/env prefixes already stripped.
     if not clean_tokens:
         return None
@@ -373,9 +391,10 @@ def violation(clean_tokens):
         return None
 
     if sub == "push":
-        for a in args:
-            if a == "--delete" or a == "-d":
-                return "git push --delete discards a remote ref"
+        if any(a in ("--delete", "-d") for a in args):
+            if is_explicit_remote_delete(clean_tokens, original_tokens):
+                return None
+            return "remote ref deletion requires exactly `git -C <dir> push --delete <remote> <branch>`"
         return None
 
     if sub == "update-ref":
@@ -422,21 +441,24 @@ for sub_cmd in split_shell_commands(cmd):
             skipping_prefix = False
         clean.append(tok.lstrip("\\"))
 
-    reason = violation(clean)
+    reason = violation(clean, tokens)
     if reason:
         msg = (
             f"BLOCKED: history-rewriting/destructive git operation ({reason}).\n\n"
             "git clean -f*, git rebase, git branch -D, git tag -d, git filter-repo,\n"
-            "git filter-branch, git commit --amend, git stash drop/clear, git push\n"
-            "--delete, git update-ref -d, git reflog expire, and git gc --prune all\n"
+            "git filter-branch, git commit --amend, git stash drop/clear, unscoped\n"
+            "git push --delete, git update-ref -d, git reflog expire, and git gc\n"
             "discard commits/work or rewrite history, so they require explicit user\n"
             "confirmation before ever running - even inside the Local System\n"
             "Management Zone, where raw git is otherwise pre-authorized (see\n"
             "local_system_zone.md's \"Still hard\" list, and its catch-all: \"any\n"
             "other command that discards commits, discards uncommitted work, or\n"
             "rewrites history\").\n\n"
-            "Ask the user to confirm, then have them run the command manually -\n"
-            "this hook cannot grant a one-time exception."
+            "The only remote-delete form allowed is exactly: git -C <dir> push\n"
+            "--delete <remote> <branch>; it must name one branch and no extra\n"
+            "options or refs. For every other blocked operation, ask the user to\n"
+            "confirm and have them run it manually - this hook cannot grant a\n"
+            "one-time exception."
         )
         print(msg)
         sys.stderr.write(msg + "\n")

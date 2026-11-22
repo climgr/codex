@@ -111,9 +111,11 @@ agent instead of running it. See
 
 Only the primary agent handles commit preparation, gate execution, commits,
 and pushes. Subagents may not perform any part of that workflow. Use
-`gitcommit --dir {project_dir} all` as the only commit/push path. Do not
-inspect the `gitcommit` executable unless the user explicitly asks to fix,
-enhance, or otherwise modify it. Before committing, follow
+`gitcommit --dir {project_dir} all` as the commit and normal-push path. The
+only raw push exception is `git -C {dir} push --delete <remote> <branch>` for
+one named remote branch. Do not inspect the `gitcommit` executable unless the
+user explicitly asks to fix, enhance, or otherwise modify it. Before
+committing, follow
 `~/.codex/memory/gitcommit_conventions.md`, ensure the test and lint gates
 passed, and document every changed file in `.git/COMMIT_MESS`. After a push,
 check the project's CI run and resolve failures before reporting completion.

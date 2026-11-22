@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202609170001-git
+##@Version           :  202611220001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -9,8 +9,8 @@
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
 # @@Created          :  Saturday, August 29, 2026 00:00 EDT
 # @@File             :  zone-git-commit-push.sh
-# @@Description      :  PreToolUse hook: blocks raw `git commit`/`git push` everywhere, with no Local System Management Zone exception — `gitcommit` is the sole commit+push path always; a zone repo that must never push uses a `.no_push` file instead.
-# @@Changelog        :  20261007: Scan shell -c commands behind common wrappers.
+# @@Description      :  PreToolUse hook: blocks raw git commit/push except explicit git -C deletion of one remote branch.
+# @@Changelog        :  20261122: Allow explicit git -C remote branch deletion only.
 # @@TODO             :  None
 # @@Other            :  git reset stays hard-denied via the Codex command policy hook; force-push stays blocked everywhere via no-force-push.sh, including inside the zone.
 # @@Resource         :  AGENTS.md - Local System Management Zone
@@ -18,9 +18,9 @@
 # @@sudo/root        :  no
 # @@Template         :  shell/bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
+# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610070003-git"
+VERSION="202611220001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 # - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -40,6 +40,7 @@ printf '%s' "$INPUT" > "$INPUT_TMPFILE"
 
 python3 - "$INPUT_TMPFILE" <<'PYEOF'
 import json
+import os
 import re
 import shlex
 import sys
@@ -298,6 +299,24 @@ def find_git_subcommand(tokens):
     return None
 
 
+def is_explicit_remote_delete(clean_tokens, original_tokens):
+    # Raw remote deletion is allowed only in this exact, repository-scoped form.
+    if clean_tokens != original_tokens or len(clean_tokens) != 7:
+        return False
+    if clean_tokens[0] != "git" or clean_tokens[1] != "-C" or not clean_tokens[2]:
+        return False
+    if clean_tokens[3:5] != ["push", "--delete"]:
+        return False
+    remote, ref = clean_tokens[5:7]
+    if not remote or remote.startswith("-") or not ref or ref.startswith("-"):
+        return False
+    if any(char in ref for char in ":*?["):
+        return False
+    if ref.startswith("refs/") and not ref.startswith("refs/heads/"):
+        return False
+    return True
+
+
 def find_git_subcommand_kind(clean_tokens):
     # Expects argv of one sub-command with wrapper/env prefixes already stripped.
     # Returns "commit", "push", or None.
@@ -346,17 +365,18 @@ for sub in split_shell_commands(cmd):
         print(msg)
         sys.stderr.write(msg + "\n")
         sys.exit(2)
-    if kind == "push":
-        # Raw `git push` also has no Local System Management Zone exception —
-        # `gitcommit` is the sole commit+push path everywhere; a zone repo that
-        # must never push keeps a `.no_push` file instead of reaching for raw push.
+    if kind == "push" and not is_explicit_remote_delete(clean, tokens):
+        # Ordinary raw pushes stay blocked everywhere; exact single-branch
+        # remote deletion is the only exception, including inside the zone.
         msg = (
             "BLOCKED: raw `git push` is forbidden everywhere, including inside the "
             "Local System Management Zone (~/Projects/local/system/**).\n\n"
             "The only sanctioned commit+push path is:\n"
             "  gitcommit --dir {project_dir} all\n\n"
-            "To prevent a zone repo from ever pushing, use a `.no_push` file instead "
-            "of raw `git push` — see AGENTS.md's Local System Management Zone section."
+            "The only raw-push exception is exactly:\n"
+            "  git -C {dir} push --delete <remote> <branch>\n\n"
+            "To prevent normal gitcommit pushes from a zone repo, use a `.no_push` "
+            "file — see AGENTS.md's Local System Management Zone section."
         )
         print(msg)
         sys.stderr.write(msg + "\n")
