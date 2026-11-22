@@ -77,3 +77,14 @@ Normal push is immediate and irreversible. To skip: `touch .no_push` (confirm wi
 **`TEST_LINT_GATE_OVERRIDE=1` escape hatch:** `enforce-test-lint-gate.sh` blocks `gitcommit` unless the test and lint gates ran and passed this session (via `test-lint-mark.sh`'s marker, or its `transcript_path` fallback). A confirmed upstream Codex bug (`anthropics/claude-code#6305`, open) means the marker sometimes never fires even for a genuinely passing run, and the fallback doesn't always see it either. If that happens: prefix the command, e.g. `TEST_LINT_GATE_OVERRIDE=1 gitcommit --dir {dir} all` — but only when the user's own message explicitly directs a bypass after confirming they already personally verified the test/lint run passed. Never set this on Codex's own initiative just because the gate blocked — "never auto-bypass a hook block" still applies; this is a user-authorized escape hatch, not a way around that rule.
 
 **Doc-sync gate (`enforce-doc-sync.sh`):** blocks `gitcommit --dir {dir} all` unless `{dir}/.git/COMMIT_MESS` carries an explicit status line for whichever of `IDEA.md`/`README.md` actually exists at `{dir}`'s root — a forced-acknowledgment gate, not a content-diff heuristic: it only checks a line is PRESENT, never that the claim is true. Accepted forms per file: `- IDEA.md: updated (<what changed in Business Logic>)` or `- IDEA.md: N/A — no user-facing change` (identically for `README.md`). Remember IDEA.md's own WHAT/HOW boundary — only Business Logic changes count as "updated"; a pure tooling/HOW change (e.g. a new hook, a build-script tweak) is legitimately `N/A`. A repo missing one or both files (script-collection/spec-collection projects, third-party forks) only needs to acknowledge whichever file is actually present — never both unconditionally. `DOC_SYNC_GATE_OVERRIDE=1` prefix (e.g. `DOC_SYNC_GATE_OVERRIDE=1 gitcommit --dir {dir} all`) bypasses the gate for that one call — same rule as `TEST_LINT_GATE_OVERRIDE=1`: user-directed only, never Codex's own initiative.
+
+## Explicit Bash Hook Bypass
+
+When the user explicitly directs bypassing hooks, prefix the one Bash command
+with `CODEX_HOOK_BYPASS=1`. This skips the read-drift, test/lint, doc-sync, and
+workflow-validation Bash PreToolUse hooks. Commit-shape, COMMIT_MESS coverage,
+subagent, safety, and unknown hooks still run. It does not require project
+`AGENTS.md`, `AI.md`, `SPEC.md`, `CLAUDE.md`, or `README.md`. Commit-shape
+enforcement still requires commits to use `gitcommit --dir {project_dir} all`;
+Codex sandbox and permission checks also remain active. Never add the prefix on
+the agent's own initiative.

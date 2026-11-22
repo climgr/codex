@@ -47,8 +47,15 @@ logic or product behavior.
   environment files, CSV/TSV, or other pure data formats.
 - Text files end with exactly one newline. Follow language and project
   formatters rather than imposing a generic style.
-- Preserve user changes. Never use destructive cleanup, history rewriting,
-  force pushes, or hook bypasses without explicit user direction.
+- Preserve user changes. Never use destructive cleanup, history rewriting, or
+  force pushes without explicit user direction.
+- When the user explicitly directs a hook bypass, prefix the one Bash command
+  with `CODEX_HOOK_BYPASS=1`. This skips the read-drift, test/lint, doc-sync,
+  and workflow-validation Bash PreToolUse hooks for that command. Commit-shape,
+  COMMIT_MESS coverage, subagent, safety, and unknown hooks still run. The
+  bypass works without project instruction files. Codex sandbox and permission
+  checks are unaffected. Use `gitcommit --dir {project_dir} all` for commits;
+  the commit-shape hook still enforces this command.
 
 ## Sensitive data
 

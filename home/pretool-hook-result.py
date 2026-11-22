@@ -3,12 +3,44 @@
 import json
 import os
 import signal
+import shlex
 import subprocess
 import sys
+
+HOOK_BYPASS_ALLOWED_HOOKS = {
+    "drift-guard-read.sh",
+    "enforce-doc-sync.sh",
+    "enforce-test-lint-gate.sh",
+    "validate-workflows.sh",
+}
 
 
 def emit_failure(hook_name, message):
     sys.stderr.write(f"{hook_name}: {message.rstrip()}\n")
+
+
+def explicit_bypass_requested(payload, hook_name):
+    try:
+        event = json.loads(payload)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(event, dict) or event.get("tool_name") != "Bash":
+        return False
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return False
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return False
+    try:
+        tokens = shlex.split(command, comments=True)
+    except ValueError:
+        return False
+    return bool(
+        hook_name in HOOK_BYPASS_ALLOWED_HOOKS
+        and tokens
+        and tokens[0] == "CODEX_HOOK_BYPASS=1"
+    )
 
 
 def main():
@@ -26,6 +58,10 @@ def main():
         emit_failure(hook_name, "timeout must be positive")
         return 1
 
+    hook_input = sys.stdin.buffer.read()
+    if explicit_bypass_requested(hook_input, hook_name):
+        return 0
+
     try:
         child = subprocess.Popen(
             sys.argv[4:],
@@ -36,7 +72,7 @@ def main():
         )
         try:
             stdout, stderr = child.communicate(
-                sys.stdin.buffer.read(), timeout=timeout_seconds
+                hook_input, timeout=timeout_seconds
             )
         except subprocess.TimeoutExpired:
             try:

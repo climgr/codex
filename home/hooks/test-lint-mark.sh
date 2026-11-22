@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202610090001-git
+##@Version           :  202611220001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -10,6 +10,7 @@
 # @@Created          :  Sunday, August 30, 2026 22:00 EDT
 # @@File             :  test-lint-mark.sh
 # @@Description      :  Records completed test/lint results from the runner and its PostToolUse fallback.
+# @@Changelog        :  20261122: Recognize unittest commands accepted by the gate classifier.
 # @@Changelog        :  20261009: Let the runner record completion after the child command exits.
 # @@TODO             :  None
 # @@Other            :  The runner invokes this after observing the child exit status; PostToolUse also accepts its PASS sentinel when returned directly.
@@ -18,9 +19,9 @@
 # @@sudo/root        :  no
 # @@Template         :  shell/bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
+# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202610090001-git"
+VERSION="202611220001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -81,6 +82,7 @@ TEST_LINT_MARK_TEST_RE='\bmake[[:space:]]+test\b|\bgo[[:space:]]+test\b|\bjq[[:s
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bcargo[[:space:]]+test\b|\bpytest\b"
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bnpm[[:space:]]+(run[[:space:]]+)?test\b"
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bmake[[:space:]]+check\b"
+TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bpython3?[[:space:]]+-m[[:space:]]+unittest\b"
 # Must stay in sync with enforce-test-lint-gate.sh's TEST_CMD_RE.
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\bgradle[[:space:]]+test\b|\./gradlew[[:space:]]+test\b|\bmvn[[:space:]]+test\b"
 TEST_LINT_MARK_TEST_RE="${TEST_LINT_MARK_TEST_RE}|\brspec\b|\bbundle[[:space:]]+exec[[:space:]]+rspec\b|\brake[[:space:]]+test\b"
