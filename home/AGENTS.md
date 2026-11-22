@@ -113,8 +113,10 @@ Only the primary agent handles commit preparation, gate execution, commits,
 and pushes. Subagents may not perform any part of that workflow. Use
 `gitcommit --dir {project_dir} all` as the commit and normal-push path. The
 only raw push exception is `git -C {dir} push --delete <remote> <branch>` for
-one named remote branch. Do not inspect the `gitcommit` executable unless the
-user explicitly asks to fix, enhance, or otherwise modify it. Before
+one named remote branch. Stash removal is allowed only as `git -C {dir} stash
+drop stash@{n}` for one selected entry; `stash clear`, `stash pop`, and
+`stash branch` remain blocked. Do not inspect the `gitcommit` executable unless
+the user explicitly asks to fix, enhance, or otherwise modify it. Before
 committing, follow
 `~/.codex/memory/gitcommit_conventions.md`, ensure the test and lint gates
 passed, and document every changed file in `.git/COMMIT_MESS`. After a push,

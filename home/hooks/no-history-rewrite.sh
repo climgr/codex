@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202611220001-git
+##@Version           :  202611220002-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -20,7 +20,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202611220001-git"
+VERSION="202611220002-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -euo pipefail
 
@@ -336,6 +336,17 @@ def is_explicit_remote_delete(clean_tokens, original_tokens):
     return True
 
 
+def is_explicit_stash_drop(clean_tokens, original_tokens):
+    # Stash deletion is allowed only for one explicitly selected entry in a named repo.
+    if clean_tokens != original_tokens or len(clean_tokens) != 6:
+        return False
+    if clean_tokens[0] != "git" or clean_tokens[1] != "-C" or not clean_tokens[2]:
+        return False
+    if clean_tokens[3:5] != ["stash", "drop"]:
+        return False
+    return re.fullmatch(r"stash@\{[0-9]+\}", clean_tokens[5]) is not None
+
+
 def violation(clean_tokens, original_tokens):
     # Expects argv of one sub-command with wrapper/env prefixes already stripped.
     if not clean_tokens:
@@ -386,8 +397,15 @@ def violation(clean_tokens, original_tokens):
         return None
 
     if sub == "stash":
-        if args and args[0] in ("drop", "clear"):
-            return f"git stash {args[0]} discards stashed work irreversibly"
+        if not args:
+            return None
+        action = args[0]
+        if action == "drop":
+            if is_explicit_stash_drop(clean_tokens, original_tokens):
+                return None
+            return "stash deletion requires exactly `git -C <dir> stash drop stash@{n}`"
+        if action in ("clear", "pop", "branch"):
+            return f"git stash {action} can discard stashed work"
         return None
 
     if sub == "push":
@@ -446,7 +464,8 @@ for sub_cmd in split_shell_commands(cmd):
         msg = (
             f"BLOCKED: history-rewriting/destructive git operation ({reason}).\n\n"
             "git clean -f*, git rebase, git branch -D, git tag -d, git filter-repo,\n"
-            "git filter-branch, git commit --amend, git stash drop/clear, unscoped\n"
+            "git filter-branch, git commit --amend, stash clear/pop/branch,\n"
+            "and unscoped stash drop,\n"
             "git push --delete, git update-ref -d, git reflog expire, and git gc\n"
             "discard commits/work or rewrite history, so they require explicit user\n"
             "confirmation before ever running - even inside the Local System\n"
@@ -454,10 +473,12 @@ for sub_cmd in split_shell_commands(cmd):
             "local_system_zone.md's \"Still hard\" list, and its catch-all: \"any\n"
             "other command that discards commits, discards uncommitted work, or\n"
             "rewrites history\").\n\n"
-            "The only remote-delete form allowed is exactly: git -C <dir> push\n"
-            "--delete <remote> <branch>; it must name one branch and no extra\n"
-            "options or refs. For every other blocked operation, ask the user to\n"
-            "confirm and have them run it manually - this hook cannot grant a\n"
+            "Allowed cleanup forms are exactly `git -C <dir> push --delete\n"
+            "<remote> <branch>` for one remote branch, and `git -C <dir> stash\n"
+            "drop stash@{n}` for one stash entry. `stash clear`, `stash pop`, and\n"
+            "`stash branch` remain blocked. For every other blocked operation,\n"
+            "ask the user to confirm and have them run it manually - this hook\n"
+            "cannot grant a\n"
             "one-time exception."
         )
         print(msg)
