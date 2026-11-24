@@ -76,7 +76,9 @@ The gate recognizes supported test and lint commands run directly, through
 Docker/Podman, through `incus exec`/`lxc exec`, or over SSH to a VM. For
 example, `docker run --rm image make test` and
 `incus exec codex-test -- cargo test` are classified by the command inside
-the isolated environment.
+the isolated environment. Before running the wrapped command, the runner also
+replays the configured Bash PreToolUse policies against that command so a
+wrapper cannot hide a host toolchain or another guarded operation.
 The PostToolUse result marker remains a fallback for commands returned directly.
 Use direct linters in the primary session; lint-agent results do not satisfy
 the commit gate.

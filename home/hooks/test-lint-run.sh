@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202611120001-git
+##@Version           :  202611240001-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
 # @@License          :  WTFPL
@@ -11,6 +11,7 @@
 # @@File             :  test-lint-run.sh
 # @@Description      :  Runs a recognized test or lint command, records its completed status, and emits a gate result sentinel.
 # @@Changelog        :  20261112: Classify supported commands inside Docker/Podman, Incus/LXC exec, and SSH VM sessions.
+# @@Changelog        :  20261124: Re-run configured Bash PreToolUse policies against the wrapped command before execution.
 # @@Changelog        :  20261011: Explain gate type mismatches and unrecognized commands.
 # @@Changelog        :  20261009: Record gate success before returning, including commands polled by session ID.
 # @@TODO             :  None
@@ -22,7 +23,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 # shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2034,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="202611120001-git"
+VERSION="202611240001-git"
 # - - - - - - - - - - - - - - - - - - - - - - - - -
 set -uo pipefail
 
@@ -104,6 +105,81 @@ if [ "$CODEX_GATE_KIND" = "both" ] && { [ "$CODEX_GATE_TEST" != "1" ] || [ "$COD
     printf '  Use a supported combined command, or run separate test and lint invocations.\n' >&2
   fi
   exit 2
+fi
+
+# The Codex PreToolUse hooks inspect this wrapper invocation, not the child
+# process it starts. Re-run the configured Bash policies against the actual
+# command so wrappers cannot hide host toolchains or other guarded operations.
+CODEX_GATE_HOOKS_CONFIG="${HOME}/.codex/hooks.json"
+if [ ! -r "$CODEX_GATE_HOOKS_CONFIG" ]; then
+  printf 'Unable to enforce command policies: %s is missing or unreadable; no command was run.\n' "$CODEX_GATE_HOOKS_CONFIG" >&2
+  exit 1
+fi
+CODEX_GATE_POLICY_STATUS=0
+python3 - "$CODEX_GATE_HOOKS_CONFIG" "$PWD" "${CODEX_SESSION_ID:-}" "$@" <<'PY'
+import json
+import re
+import shlex
+import subprocess
+import sys
+
+config_path, cwd, session_id, *command = sys.argv[1:]
+try:
+    with open(config_path, encoding="utf-8") as config_file:
+        config = json.load(config_file)
+except (OSError, ValueError) as error:
+    print(f"Unable to load command policies: {error}; no command was run.", file=sys.stderr)
+    sys.exit(1)
+
+command_text = shlex.join(command)
+event = json.dumps({
+    "session_id": session_id,
+    "cwd": cwd,
+    "tool_name": "Bash",
+    "tool_input": {"command": command_text},
+}, separators=(",", ":"))
+
+for group in config.get("hooks", {}).get("PreToolUse", []):
+    if not re.search(group.get("matcher", ""), "Bash"):
+        continue
+    for hook in group.get("hooks", []):
+        if hook.get("type") != "command" or not hook.get("command"):
+            continue
+        timeout = hook.get("timeout", 10)
+        try:
+            result = subprocess.run(
+                hook["command"],
+                shell=True,
+                input=event,
+                capture_output=True,
+                text=True,
+                timeout=timeout + 1,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            print(f"Command policy preflight failed ({hook['command']}): {error}; no command was run.", file=sys.stderr)
+            sys.exit(1)
+
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip()
+            print(f"Command policy preflight failed with exit code {result.returncode}; no command was run.", file=sys.stderr)
+            if detail:
+                print(detail, file=sys.stderr)
+            sys.exit(1)
+
+        try:
+            response = json.loads(result.stdout)
+        except ValueError:
+            continue
+        output = response.get("hookSpecificOutput", {})
+        decision = output.get("permissionDecision") if isinstance(output, dict) else None
+        if decision in {"deny", "ask"}:
+            print(output.get("permissionDecisionReason", "Command denied by a configured Bash policy hook."), file=sys.stderr)
+            sys.exit(2)
+PY
+CODEX_GATE_POLICY_STATUS=$?
+if [ "$CODEX_GATE_POLICY_STATUS" -ne 0 ]; then
+  exit "$CODEX_GATE_POLICY_STATUS"
 fi
 
 CODEX_GATE_TMP_ROOT="${TMPDIR:-/tmp}/codex-hooks/gate-output"

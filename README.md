@@ -8,7 +8,7 @@ Codex user configuration maintained by the `climgr` organization. `install.sh` d
 |------|---------|
 | `home/AGENTS.md` | Global Codex instructions |
 | `home/config.toml` | User-level Codex settings |
-| `home/hooks.json`, `home/hooks/` | Lifecycle hook wiring and scripts; `CODEX_HOOK_BYPASS=1 <command>` skips the read-drift, test/lint, doc-sync, and workflow-validation hooks while unknown hooks remain enforced |
+| `home/hooks.json`, `home/hooks/` | Lifecycle hook wiring and scripts; the test/lint runner reapplies Bash PreToolUse policies to its child command; `CODEX_HOOK_BYPASS=1 <command>` skips the read-drift, test/lint, doc-sync, and workflow-validation hooks while unknown hooks remain enforced |
 | `home/hooks/classify-test-lint.py` | Classifies common test, build, type-check, and lint commands directly or inside containers/VMs |
 | `home/pretool-hook-result.py` | Converts hook denials to Codex responses and applies the explicit Bash hook bypass only to its allowlisted hooks |
 | `home/agents/` | Custom agent TOML definitions |
